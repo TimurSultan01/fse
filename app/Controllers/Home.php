@@ -4,8 +4,24 @@ namespace App\Controllers;
 
 class Home extends BaseController
 {
-    public function index(): string
+    public function index()
     {
-        return view('welcome_message');
+        try {
+            $db = \Config\Database::connect();
+
+            if (! $db->connID) {
+                $db->initialize();
+            }
+
+            $db->query('SELECT 1');
+
+            $status = '✅ Datenbankverbindung erfolgreich';
+        } catch (\Throwable $e) {
+            $status = '❌ Datenbankfehler: ' . $e->getMessage();
+        }
+
+        return view('welcome_message', [
+            'status' => $status,
+        ]);
     }
 }
