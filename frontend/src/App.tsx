@@ -1,40 +1,38 @@
-import { useEffect, useState } from 'react'
+import { NavLink, Route, Routes } from 'react-router-dom';
+import Home from './pages/Home';
+import Meetups from './pages/Meetups';
+import MeetupDetail from './pages/MeetupDetail';
+import NewMeetup from './pages/NewMeetup';
+import Groups from './pages/Groups';
+import Chat from './pages/Chat';
 
-type ApiResponse = {
-  success: boolean
-  message: string
-  time: string
-}
-
-function App() {
-  const [message, setMessage] = useState<string>('Lade...')
-
-  useEffect(() => {
-    async function loadBackendTest() {
-      try {
-        const response = await fetch('/api/test')
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
-
-        const data: ApiResponse = await response.json()
-        setMessage(data.message)
-      } catch (error) {
-        console.error(error)
-        setMessage('Fehler beim Backend-Aufruf')
-      }
-    }
-
-    loadBackendTest()
-  }, [])
-
+export default function App() {
   return (
     <>
-      <h1>React Frontend</h1>
-      <p>{message}</p>
-    </>
-  )
-}
+      <header className="site-header">
+        <div>
+          <strong className="brand">FlightMeet</strong>
+          <span className="tagline">Community für Gleitschirmfliegerinnen und Gleitschirmflieger</span>
+        </div>
 
-export default App
+        <nav className="nav">
+          <NavLink to="/">Home</NavLink>
+          <NavLink to="/flugtreffen">Flugtreffen</NavLink>
+          <NavLink to="/gruppen">Gruppen</NavLink>
+          <NavLink to="/chat">Chat</NavLink>
+        </nav>
+      </header>
+
+      <main className="container">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/flugtreffen" element={<Meetups />} />
+          <Route path="/flugtreffen/neu" element={<NewMeetup />} />
+          <Route path="/flugtreffen/:id" element={<MeetupDetail />} />
+          <Route path="/gruppen" element={<Groups />} />
+          <Route path="/chat" element={<Chat />} />
+        </Routes>
+      </main>
+    </>
+  );
+}
