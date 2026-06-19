@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api } from '../api';
 import { useAuth } from '../hooks/useAuth';
+import { toast } from '../lib/toast';
+import { useConfirmStore } from '../stores/useConfirmStore';
 import type { ChatMessage } from '../types';
 
 type ChatBoxProps = {
@@ -12,6 +14,7 @@ type ChatBoxProps = {
 
 export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxProps) {
   const { user } = useAuth();
+  const requestConfirmation = useConfirmStore((state) => state.requestConfirmation);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState<string>('');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
@@ -65,8 +68,10 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
       });
       setMessages((current) => [...current, created]);
       setText('');
+      toast('Nachricht wurde gesendet.', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      toast(err instanceof Error ? err.message : 'Nachricht konnte nicht gesendet werden.', 'error');
     }
   }
 
@@ -74,9 +79,21 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
     try {
       await api.deleteMessage(id);
       setMessages((current) => current.filter((message) => message.id !== id));
+      toast('Nachricht wurde gelöscht.', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      toast(err instanceof Error ? err.message : 'Nachricht konnte nicht gelöscht werden.', 'error');
     }
+  }
+
+  function requestDeleteMessage(id: number): void {
+    requestConfirmation({
+      title: 'Nachricht löschen?',
+      message: 'Diese Nachricht wird dauerhaft aus dem Chat entfernt.',
+      confirmLabel: 'Löschen',
+      tone: 'danger',
+      onConfirm: () => void deleteMessage(id),
+    });
   }
 
   return (
@@ -103,7 +120,7 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
             <div className="chat-header">
               <strong>{message.author}</strong>
               {(message.user_id === user?.id || message.author.toLowerCase() === user?.display_name.toLowerCase()) && (
-                <button className="mini-danger" onClick={() => void deleteMessage(message.id)}>Löschen</button>
+                <button className="mini-danger" onClick={() => requestDeleteMessage(message.id)}>Löschen</button>
               )}
             </div>
             <p>{message.text}</p>

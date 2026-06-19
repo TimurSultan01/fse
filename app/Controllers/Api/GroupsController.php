@@ -4,16 +4,19 @@ namespace App\Controllers\Api;
 
 use App\Models\GroupModel;
 use App\Models\GroupMemberModel;
+use App\Models\UserModel;
 
 class GroupsController extends BaseApiController
 {
     private GroupModel $groups;
     private GroupMemberModel $members;
+    private UserModel $users;
 
     public function __construct()
     {
         $this->groups = new GroupModel();
         $this->members = new GroupMemberModel();
+        $this->users = new UserModel();
     }
 
     public function index()
@@ -23,11 +26,25 @@ class GroupsController extends BaseApiController
             ->findAll();
 
         foreach ($rows as &$group) {
-            $group['member_count'] = $this->members
+            $members = $this->members
                 ->where('group_id', (int) $group['id'])
-                ->countAllResults();
+                ->orderBy('pilot_name', 'ASC')
+                ->findAll();
+            $creator = ($group['creator_user_id'] ?? null) !== null
+                ? $this->users->find((int) $group['creator_user_id'])
+                : null;
+
+            foreach ($members as &$member) {
+                $member['id'] = (int) $member['id'];
+                $member['group_id'] = (int) $member['group_id'];
+                $member['user_id'] = ($member['user_id'] ?? null) !== null ? (int) $member['user_id'] : null;
+            }
+
             $group['id'] = (int) $group['id'];
             $group['creator_user_id'] = ($group['creator_user_id'] ?? null) !== null ? (int) $group['creator_user_id'] : null;
+            $group['creator_display_name'] = $creator['display_name'] ?? 'Unbekannt';
+            $group['members'] = $members;
+            $group['member_count'] = count($members);
             $group['can_manage'] = false;
         }
 
@@ -44,7 +61,9 @@ class GroupsController extends BaseApiController
 
         $group['id'] = (int) $group['id'];
         $group['creator_user_id'] = ($group['creator_user_id'] ?? null) !== null ? (int) $group['creator_user_id'] : null;
+        $creator = $group['creator_user_id'] !== null ? $this->users->find((int) $group['creator_user_id']) : null;
         $currentUser = $this->currentUser();
+        $group['creator_display_name'] = $creator['display_name'] ?? 'Unbekannt';
         $group['can_manage'] = $currentUser !== null && $this->isCreator($group, (int) $currentUser['id']);
         $group['members'] = $this->members
             ->where('group_id', (int) $id)

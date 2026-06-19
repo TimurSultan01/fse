@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../hooks/useAuth';
+import { toast } from '../lib/toast';
+import { useConfirmStore } from '../stores/useConfirmStore';
 import type { MeetupFormData } from '../types';
 
 const initialForm: MeetupFormData = {
@@ -21,6 +24,8 @@ export default function MeetupForm() {
   const isEditMode = Boolean(id);
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const requestConfirmation = useConfirmStore((state) => state.requestConfirmation);
+  const queryClient = useQueryClient();
 
   const [form, setForm] = useState<MeetupFormData>(initialForm);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -76,6 +81,25 @@ export default function MeetupForm() {
     }));
   }
 
+  async function saveMeetup(): Promise<void> {
+    try {
+      if (id) {
+        await api.updateMeetup(id, form);
+        void queryClient.invalidateQueries({ queryKey: ['meetups'] });
+        toast('Flugtreffen wurde gespeichert.', 'success');
+        navigate(`/flugtreffen/${id}`);
+      } else {
+        const created = await api.createMeetup(form);
+        void queryClient.invalidateQueries({ queryKey: ['meetups'] });
+        toast('Flugtreffen wurde erstellt.', 'success');
+        navigate(`/flugtreffen/${created.id}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      toast(err instanceof Error ? err.message : 'Flugtreffen konnte nicht gespeichert werden.', 'error');
+    }
+  }
+
   async function submitForm(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setError('');
@@ -85,17 +109,14 @@ export default function MeetupForm() {
 
     if (Object.keys(errors).length > 0) return;
 
-    try {
-      if (id) {
-        await api.updateMeetup(id, form);
-        navigate(`/flugtreffen/${id}`);
-      } else {
-        const created = await api.createMeetup(form);
-        navigate(`/flugtreffen/${created.id}`);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-    }
+    requestConfirmation({
+      title: isEditMode ? 'Änderungen speichern?' : 'Flugtreffen erstellen?',
+      message: isEditMode
+        ? 'Die Änderungen werden direkt für alle Teilnehmenden sichtbar.'
+        : 'Das neue Flugtreffen wird öffentlich in der Übersicht angezeigt.',
+      confirmLabel: isEditMode ? 'Speichern' : 'Erstellen',
+      onConfirm: () => void saveMeetup(),
+    });
   }
 
   if (!loading && !user) {

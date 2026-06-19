@@ -1,14 +1,17 @@
+import { lazy, Suspense } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
-import Home from './pages/Home';
-import Meetups from './pages/Meetups';
-import MeetupDetail from './pages/MeetupDetail';
-import MeetupForm from './pages/MeetupForm';
-import Groups from './pages/Groups';
-import GroupDetail from './pages/GroupDetail';
-import Chat from './pages/Chat';
-import Profile from './pages/Profile';
-import AuthPage from './pages/AuthPage';
 import { useAuth } from './hooks/useAuth';
+import ConfirmDialog from './components/ConfirmDialog';
+
+const Home = lazy(() => import('./pages/Home'));
+const Meetups = lazy(() => import('./pages/Meetups'));
+const MeetupDetail = lazy(() => import('./pages/MeetupDetail'));
+const MeetupForm = lazy(() => import('./pages/MeetupForm'));
+const Groups = lazy(() => import('./pages/Groups'));
+const GroupDetail = lazy(() => import('./pages/GroupDetail'));
+const Chat = lazy(() => import('./pages/Chat'));
+const Profile = lazy(() => import('./pages/Profile'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
 
 export default function App() {
   const { user, logout } = useAuth();
@@ -39,20 +42,23 @@ export default function App() {
       </header>
 
       <main className="container">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/flugtreffen" element={<Meetups />} />
-          <Route path="/flugtreffen/neu" element={<MeetupForm />} />
-          <Route path="/flugtreffen/:id/bearbeiten" element={<MeetupForm />} />
-          <Route path="/flugtreffen/:id" element={<MeetupDetail />} />
-          <Route path="/gruppen" element={<Groups />} />
-          <Route path="/gruppen/:id" element={<GroupDetail />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/profil" element={<Profile />} />
-          <Route path="/login" element={<AuthPage />} />
-          <Route path="/registrieren" element={<AuthPage />} />
-        </Routes>
+        <Suspense fallback={<p>Lade Ansicht...</p>}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/flugtreffen" element={<Meetups />} />
+            <Route path="/flugtreffen/neu" element={<MeetupForm />} />
+            <Route path="/flugtreffen/:id/bearbeiten" element={<MeetupForm />} />
+            <Route path="/flugtreffen/:id" element={<MeetupDetail />} />
+            <Route path="/gruppen" element={<Groups />} />
+            <Route path="/gruppen/:id" element={<GroupDetail />} />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/profil" element={<Profile />} />
+            <Route path="/login" element={<AuthPage />} />
+            <Route path="/registrieren" element={<AuthPage />} />
+          </Routes>
+        </Suspense>
       </main>
+      <ConfirmDialog />
     </>
   );
 }

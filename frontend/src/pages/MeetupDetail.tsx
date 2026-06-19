@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../hooks/useAuth';
+import { toast } from '../lib/toast';
+import { useConfirmStore } from '../stores/useConfirmStore';
 import type { MeetupDetail as MeetupDetailType } from '../types';
 
 export default function MeetupDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const requestConfirmation = useConfirmStore((state) => state.requestConfirmation);
+  const queryClient = useQueryClient();
 
   const [meetup, setMeetup] = useState<MeetupDetailType | null>(null);
   const [message, setMessage] = useState<string>('');
@@ -54,24 +59,37 @@ export default function MeetupDetail() {
         : await api.joinMeetup(id);
 
       setMeetup(updated);
+      void queryClient.invalidateQueries({ queryKey: ['meetups'] });
       setMessage(joined ? 'Teilnahme wurde zurückgenommen.' : 'Du nimmst jetzt am Flugtreffen teil.');
+      toast(joined ? 'Teilnahme wurde zurückgenommen.' : 'Du nimmst jetzt am Flugtreffen teil.', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      toast(err instanceof Error ? err.message : 'Teilnahme konnte nicht geändert werden.', 'error');
     }
   }
 
   async function deleteMeetup(): Promise<void> {
     if (!id) return;
 
-    const confirmed = window.confirm('Dieses Flugtreffen wirklich löschen?');
-    if (!confirmed) return;
-
     try {
       await api.deleteMeetup(id);
+      void queryClient.invalidateQueries({ queryKey: ['meetups'] });
+      toast('Flugtreffen wurde gelöscht.', 'success');
       navigate('/flugtreffen');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      toast(err instanceof Error ? err.message : 'Flugtreffen konnte nicht gelöscht werden.', 'error');
     }
+  }
+
+  function requestDeleteMeetup(): void {
+    requestConfirmation({
+      title: 'Flugtreffen löschen?',
+      message: 'Diese Aktion entfernt das Flugtreffen und alle zugehörigen Teilnahmen dauerhaft.',
+      confirmLabel: 'Löschen',
+      tone: 'danger',
+      onConfirm: () => void deleteMeetup(),
+    });
   }
 
   if (error && !meetup) {
@@ -132,7 +150,7 @@ export default function MeetupDetail() {
           {canManage && (
             <>
               <Link className="button secondary" to={`/flugtreffen/${meetup.id}/bearbeiten`}>Bearbeiten</Link>
-              <button className="danger-button" onClick={() => void deleteMeetup()}>Löschen</button>
+              <button className="danger-button" onClick={requestDeleteMeetup}>Löschen</button>
             </>
           )}
           <Link className="button secondary" to="/flugtreffen">Zurück zur Übersicht</Link>

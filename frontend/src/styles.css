@@ -87,6 +87,47 @@ a {
   line-height: 1.7;
 }
 
+.home-page {
+  display: grid;
+  gap: 24px;
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.dashboard article,
+.chart-panel {
+  background: white;
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 8px 24px rgba(23, 32, 51, 0.06);
+}
+
+.dashboard strong {
+  display: block;
+  font-size: 2rem;
+  margin-top: 4px;
+}
+
+.chart-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: 24px;
+  align-items: center;
+}
+
+.chart-panel h2 {
+  margin-top: 0;
+}
+
+.chart-box {
+  max-width: 320px;
+  justify-self: end;
+}
+
 .eyebrow {
   color: #176c72;
   font-weight: 700;
@@ -190,6 +231,34 @@ textarea {
   transform: translateY(-2px);
 }
 
+.sortable-card {
+  position: relative;
+}
+
+.sortable-card.dragging {
+  opacity: 0.75;
+  z-index: 20;
+}
+
+.drag-handle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 10px;
+  background: #eef2f7;
+  color: #344054;
+  cursor: grab;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
 .card-header,
 .chat-header {
   display: flex;
@@ -200,6 +269,46 @@ textarea {
 
 .card h2 {
   margin-top: 0;
+  padding-right: 36px;
+}
+
+.meta-line {
+  color: #667085;
+  font-size: 0.92rem;
+  margin: 8px 0 12px;
+}
+
+.card-details {
+  margin-top: 16px;
+  border-top: 1px solid #eef2f7;
+  padding-top: 12px;
+}
+
+.card-details summary {
+  color: #176c72;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.compact-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.compact-list li {
+  background: #eef2f7;
+  border-radius: 999px;
+  color: #344054;
+  padding: 6px 10px;
+}
+
+.card-action {
+  display: inline-flex;
+  margin-top: 16px;
 }
 
 .badge {
@@ -381,6 +490,33 @@ textarea {
   width: auto;
 }
 
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(23, 32, 51, 0.48);
+  z-index: 100;
+}
+
+.dialog {
+  width: min(100%, 460px);
+  background: white;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(23, 32, 51, 0.28);
+  padding: 24px;
+}
+
+.dialog h2 {
+  margin: 0 0 8px;
+}
+
+.dialog p {
+  color: #344054;
+  line-height: 1.6;
+}
+
 @media (max-width: 780px) {
   .site-header,
   .page-title,
@@ -391,6 +527,17 @@ textarea {
   .join-box {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .chart-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .chart-box {
+    justify-self: stretch;
+    max-width: 100%;
   }
 
   .account-menu {

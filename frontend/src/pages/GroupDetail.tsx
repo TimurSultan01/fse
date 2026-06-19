@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../hooks/useAuth';
+import { toast } from '../lib/toast';
+import { useConfirmStore } from '../stores/useConfirmStore';
 import type { GroupDetail as GroupDetailType, GroupFormData } from '../types';
 import ChatBox from '../components/ChatBox';
 
@@ -10,6 +13,8 @@ export default function GroupDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const requestConfirmation = useConfirmStore((state) => state.requestConfirmation);
+  const queryClient = useQueryClient();
 
   const [group, setGroup] = useState<GroupDetailType | null>(null);
   const [form, setForm] = useState<GroupFormData>({ name: '', region: '', description: '' });
@@ -55,8 +60,7 @@ export default function GroupDetail() {
     }));
   }
 
-  async function saveGroup(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
+  async function saveGroup(): Promise<void> {
     if (!id) return;
 
     setMessage('');
@@ -65,25 +69,48 @@ export default function GroupDetail() {
     try {
       const updated = await api.updateGroup(id, form);
       setGroup(updated);
+      void queryClient.invalidateQueries({ queryKey: ['groups'] });
       setEditing(false);
       setMessage('Gruppe wurde gespeichert.');
+      toast('Gruppe wurde gespeichert.', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      toast(err instanceof Error ? err.message : 'Gruppe konnte nicht gespeichert werden.', 'error');
     }
+  }
+
+  function requestSaveGroup(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    requestConfirmation({
+      title: 'Gruppe speichern?',
+      message: 'Die Änderungen werden für alle Mitglieder sichtbar.',
+      confirmLabel: 'Speichern',
+      onConfirm: () => void saveGroup(),
+    });
   }
 
   async function deleteGroup(): Promise<void> {
     if (!id) return;
 
-    const confirmed = window.confirm('Diese Gruppe wirklich löschen?');
-    if (!confirmed) return;
-
     try {
       await api.deleteGroup(id);
+      void queryClient.invalidateQueries({ queryKey: ['groups'] });
+      toast('Gruppe wurde gelöscht.', 'success');
       navigate('/gruppen');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      toast(err instanceof Error ? err.message : 'Gruppe konnte nicht gelöscht werden.', 'error');
     }
+  }
+
+  function requestDeleteGroup(): void {
+    requestConfirmation({
+      title: 'Gruppe löschen?',
+      message: 'Diese Aktion entfernt die Gruppe, Mitgliedschaften und zugehörige Gruppenchats dauerhaft.',
+      confirmLabel: 'Löschen',
+      tone: 'danger',
+      onConfirm: () => void deleteGroup(),
+    });
   }
 
   async function toggleMembership(): Promise<void> {
@@ -102,9 +129,12 @@ export default function GroupDetail() {
         : await api.joinGroup(id);
 
       setGroup(updated);
+      void queryClient.invalidateQueries({ queryKey: ['groups'] });
       setMessage(joined ? 'Du bist aus der Gruppe ausgetreten.' : 'Du bist der Gruppe beigetreten.');
+      toast(joined ? 'Du bist aus der Gruppe ausgetreten.' : 'Du bist der Gruppe beigetreten.', 'success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      toast(err instanceof Error ? err.message : 'Mitgliedschaft konnte nicht geändert werden.', 'error');
     }
   }
 
@@ -116,7 +146,7 @@ export default function GroupDetail() {
     <section>
       <article className="detail">
         {editing ? (
-          <form className="inline-edit" onSubmit={(event) => void saveGroup(event)}>
+          <form className="inline-edit" onSubmit={requestSaveGroup}>
             <label>
               Gruppenname
               <input name="name" value={form.name} onChange={updateForm} minLength={3} maxLength={120} required />
@@ -174,7 +204,7 @@ export default function GroupDetail() {
         {canManage && !editing && (
           <div className="actions">
             <button className="secondary-button" onClick={() => setEditing(true)}>Bearbeiten</button>
-            <button className="danger-button" onClick={() => void deleteGroup()}>Löschen</button>
+            <button className="danger-button" onClick={requestDeleteGroup}>Löschen</button>
           </div>
         )}
 

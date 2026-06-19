@@ -8,6 +8,7 @@ export type ApiResponse<T> = {
 export type Meetup = {
   id: number;
   creator_user_id?: number | null;
+  creator_display_name?: string;
   title: string;
   spot: string;
   region: string;
@@ -18,6 +19,7 @@ export type Meetup = {
   description: string;
   status: string;
   participant_count: number;
+  participants?: Participant[];
   free_places: number;
   can_manage?: boolean;
   created_at?: string;
@@ -64,10 +66,12 @@ export type FilterOptions = {
 export type Group = {
   id: number;
   creator_user_id?: number | null;
+  creator_display_name?: string;
   name: string;
   region: string;
   description: string;
   member_count?: number;
+  members?: GroupMember[];
   can_manage?: boolean;
 };
 
@@ -116,4 +120,15 @@ export type AuthCredentials = {
 
 export type RegisterData = AuthCredentials & {
   display_name: string;
+};
+
+export type ProfileUpdateData = {
+  display_name: string;
+  email: string;
+};
+
+export type PasswordChangeData = {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
 };

@@ -4,16 +4,19 @@ namespace App\Controllers\Api;
 
 use App\Models\MeetupModel;
 use App\Models\ParticipantModel;
+use App\Models\UserModel;
 
 class MeetupsController extends BaseApiController
 {
     private MeetupModel $meetups;
     private ParticipantModel $participants;
+    private UserModel $users;
 
     public function __construct()
     {
         $this->meetups = new MeetupModel();
         $this->participants = new ParticipantModel();
+        $this->users = new UserModel();
     }
 
     public function index()
@@ -282,17 +285,31 @@ class MeetupsController extends BaseApiController
         $currentUser = $this->currentUser();
 
         foreach ($meetups as &$meetup) {
-            $count = $this->participants
+            $participants = $this->participants
                 ->where('meetup_id', (int) $meetup['id'])
-                ->countAllResults();
+                ->orderBy('pilot_name', 'ASC')
+                ->findAll();
+
+            foreach ($participants as &$participant) {
+                $participant['id'] = (int) $participant['id'];
+                $participant['meetup_id'] = (int) $participant['meetup_id'];
+                $participant['user_id'] = ($participant['user_id'] ?? null) !== null ? (int) $participant['user_id'] : null;
+            }
 
             $max = (int) $meetup['max_participants'];
-            $meetup['participant_count'] = $count;
-            $meetup['free_places'] = max(0, $max - $count);
-            $meetup['status'] = $count >= $max ? 'voll' : 'offen';
+            $count = count($participants);
+            $creator = ($meetup['creator_user_id'] ?? null) !== null
+                ? $this->users->find((int) $meetup['creator_user_id'])
+                : null;
+
             $meetup['id'] = (int) $meetup['id'];
             $meetup['creator_user_id'] = ($meetup['creator_user_id'] ?? null) !== null ? (int) $meetup['creator_user_id'] : null;
+            $meetup['creator_display_name'] = $creator['display_name'] ?? 'Unbekannt';
             $meetup['max_participants'] = (int) $meetup['max_participants'];
+            $meetup['participant_count'] = $count;
+            $meetup['participants'] = $participants;
+            $meetup['free_places'] = max(0, $max - $count);
+            $meetup['status'] = $count >= $max ? 'voll' : 'offen';
             $meetup['can_manage'] = $currentUser !== null && $this->isCreator($meetup, (int) $currentUser['id']);
         }
 

@@ -14,6 +14,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\Api'], static function ($
     $routes->post('auth/register', 'AuthController::register');
     $routes->post('auth/login', 'AuthController::login');
     $routes->post('auth/logout', 'AuthController::logout');
+    $routes->put('auth/profile', 'AuthController::updateProfile');
+    $routes->post('auth/password', 'AuthController::changePassword');
 
     $routes->get('meetups', 'MeetupsController::index');
     $routes->get('meetups/filters', 'MeetupsController::filters');

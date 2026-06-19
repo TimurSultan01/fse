@@ -11,6 +11,8 @@ import type {
   MeetupDetail,
   MeetupFilters,
   MeetupFormData,
+  PasswordChangeData,
+  ProfileUpdateData,
   RegisterData,
 } from './types';
 
@@ -73,6 +75,20 @@ export const api = {
   logout(): Promise<null> {
     return request<null>('/auth/logout', {
       method: 'POST',
+    });
+  },
+
+  updateProfile(data: ProfileUpdateData): Promise<AuthUser> {
+    return request<AuthUser>('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  changePassword(data: PasswordChangeData): Promise<null> {
+    return request<null>('/auth/password', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   },
 
