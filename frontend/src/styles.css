@@ -27,6 +27,14 @@ a {
   z-index: 10;
 }
 
+.account-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #344054;
+  font-weight: 700;
+}
+
 .brand {
   font-size: 1.6rem;
   color: #176c72;
@@ -326,6 +334,43 @@ textarea {
   font-size: 1rem;
 }
 
+.chat-author {
+  min-width: 160px;
+  border: 1px solid #cfd8e3;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f5f7fb;
+  color: #344054;
+  font-weight: 700;
+}
+
+.auth-switch a {
+  color: #176c72;
+  font-weight: 700;
+}
+
+.profile-card > div {
+  display: grid;
+  gap: 4px;
+}
+
+.inline-edit {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.inline-edit label {
+  display: grid;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.profile-label {
+  color: #667085;
+  font-size: 0.9rem;
+}
+
 .checkbox-label {
   display: flex;
   gap: 8px;
@@ -346,6 +391,11 @@ textarea {
   .join-box {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .account-menu {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .hero {

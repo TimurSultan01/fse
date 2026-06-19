@@ -35,6 +35,7 @@ class MessagesController extends BaseApiController
 
         foreach ($rows as &$row) {
             $row['id'] = (int) $row['id'];
+            $row['user_id'] = $row['user_id'] !== null ? (int) $row['user_id'] : null;
             $row['group_id'] = $row['group_id'] !== null ? (int) $row['group_id'] : null;
             $row['meetup_id'] = $row['meetup_id'] !== null ? (int) $row['meetup_id'] : null;
         }
@@ -44,10 +45,16 @@ class MessagesController extends BaseApiController
 
     public function create()
     {
+        $user = $this->requireUser();
+        if (!$user) {
+            return $this->failUnauthorized();
+        }
+
         $payload = $this->jsonPayload();
 
         $data = [
-            'author'    => trim((string) ($payload['author'] ?? '')),
+            'user_id'   => (int) $user['id'],
+            'author'    => $user['display_name'],
             'text'      => trim((string) ($payload['text'] ?? '')),
             'group_id'  => isset($payload['group_id']) && $payload['group_id'] !== '' ? (int) $payload['group_id'] : null,
             'meetup_id' => isset($payload['meetup_id']) && $payload['meetup_id'] !== '' ? (int) $payload['meetup_id'] : null,
@@ -57,13 +64,35 @@ class MessagesController extends BaseApiController
             return $this->failValidation($this->messages->errors());
         }
 
-        return $this->ok($this->messages->find($this->messages->getInsertID()), 'Nachricht wurde gesendet', 201);
+        $message = $this->messages->find($this->messages->getInsertID());
+        $message['id'] = (int) $message['id'];
+        $message['user_id'] = $message['user_id'] !== null ? (int) $message['user_id'] : null;
+        $message['group_id'] = $message['group_id'] !== null ? (int) $message['group_id'] : null;
+        $message['meetup_id'] = $message['meetup_id'] !== null ? (int) $message['meetup_id'] : null;
+
+        return $this->ok($message, 'Nachricht wurde gesendet', 201);
     }
 
     public function delete($id = null)
     {
-        if (!$this->messages->find((int) $id)) {
+        $user = $this->requireUser();
+        if (!$user) {
+            return $this->failUnauthorized();
+        }
+
+        $message = $this->messages->find((int) $id);
+        if (!$message) {
             return $this->failNotFoundMessage('Nachricht nicht gefunden');
+        }
+
+        $ownsMessage = (int) ($message['user_id'] ?? 0) === (int) $user['id']
+            || (($message['user_id'] ?? null) === null && strtolower($message['author']) === strtolower($user['display_name']));
+
+        if (!$ownsMessage) {
+            return $this->respond([
+                'success' => false,
+                'message' => 'Du kannst nur deine eigenen Nachrichten löschen.',
+            ], 403);
         }
 
         $this->messages->delete((int) $id);

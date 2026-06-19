@@ -9,7 +9,7 @@ class MessageModel extends Model
     protected $table = 'messages';
     protected $primaryKey = 'id';
     protected $returnType = 'array';
-    protected $allowedFields = ['author', 'text', 'group_id', 'meetup_id'];
+    protected $allowedFields = ['user_id', 'author', 'text', 'group_id', 'meetup_id'];
     protected $useTimestamps = true;
 
     protected $validationRules = [

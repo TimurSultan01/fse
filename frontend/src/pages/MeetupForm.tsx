@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
+import { useAuth } from '../hooks/useAuth';
 import type { MeetupFormData } from '../types';
 
 const initialForm: MeetupFormData = {
@@ -19,16 +20,23 @@ export default function MeetupForm() {
   const { id } = useParams<{ id: string }>();
   const isEditMode = Boolean(id);
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
 
   const [form, setForm] = useState<MeetupFormData>(initialForm);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>('');
+  const [forbidden, setForbidden] = useState<boolean>(false);
 
   useEffect(() => {
     if (!id) return;
 
     api.getMeetup(id)
       .then((meetup) => {
+        if (meetup.can_manage === false) {
+          setForbidden(true);
+          return;
+        }
+
         setForm({
           title: meetup.title,
           spot: meetup.spot,
@@ -88,6 +96,30 @@ export default function MeetupForm() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
     }
+  }
+
+  if (!loading && !user) {
+    return (
+      <section className="form-page">
+        <h1>{isEditMode ? 'Flugtreffen bearbeiten' : 'Neues Flugtreffen erstellen'}</h1>
+        <div className="form-card">
+          <p>Bitte melde dich an, um Flugtreffen zu erstellen oder zu bearbeiten.</p>
+          <Link className="button" to="/login">Einloggen</Link>
+        </div>
+      </section>
+    );
+  }
+
+  if (forbidden) {
+    return (
+      <section className="form-page">
+        <h1>Flugtreffen bearbeiten</h1>
+        <div className="form-card">
+          <p>Nur der Ersteller kann dieses Flugtreffen bearbeiten.</p>
+          <Link className="button secondary" to={id ? `/flugtreffen/${id}` : '/flugtreffen'}>Zurück</Link>
+        </div>
+      </section>
+    );
   }
 
   return (

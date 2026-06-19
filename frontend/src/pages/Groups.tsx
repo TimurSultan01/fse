@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { useAuth } from '../hooks/useAuth';
 import type { Group, GroupFormData } from '../types';
 
 const emptyGroup: GroupFormData = {
@@ -11,6 +12,7 @@ const emptyGroup: GroupFormData = {
 };
 
 export default function Groups() {
+  const { user } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [form, setForm] = useState<GroupFormData>(emptyGroup);
   const [showForm, setShowForm] = useState<boolean>(false);
@@ -25,7 +27,11 @@ export default function Groups() {
   }
 
   useEffect(() => {
-    void loadGroups();
+    const timeoutId = window.setTimeout(() => {
+      void loadGroups();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   function updateForm(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void {
@@ -33,6 +39,16 @@ export default function Groups() {
       ...current,
       [event.target.name]: event.target.value,
     }));
+  }
+
+  function toggleForm(): void {
+    if (!user) {
+      setError('Bitte melde dich zuerst an.');
+      return;
+    }
+
+    setError('');
+    setShowForm((value) => !value);
   }
 
   async function createGroup(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -56,7 +72,7 @@ export default function Groups() {
           <h1>Gruppen</h1>
           <p>Finde Community-Gruppen nach Region und Interesse oder erstelle eine neue Gruppe.</p>
         </div>
-        <button onClick={() => setShowForm((value) => !value)}>
+        <button onClick={toggleForm}>
           {showForm ? 'Formular schließen' : 'Neue Gruppe'}
         </button>
       </div>

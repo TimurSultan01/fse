@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { useAuth } from '../hooks/useAuth';
 import type { FilterOptions, Meetup, MeetupFilters } from '../types';
 
 export default function Meetups() {
+  const { user } = useAuth();
   const [meetups, setMeetups] = useState<Meetup[]>([]);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({ regions: [], levels: [] });
   const [filters, setFilters] = useState<MeetupFilters>({
@@ -36,7 +38,11 @@ export default function Meetups() {
   }
 
   useEffect(() => {
-    void loadMeetups();
+    const timeoutId = window.setTimeout(() => {
+      void loadMeetups();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.region, filters.level, filters.date_from, filters.sort]);
 
@@ -63,7 +69,7 @@ export default function Meetups() {
           <h1>Flugtreffen</h1>
           <p>Suche nach Titel, Spot, Region oder Beschreibung und filtere nach Region, Level oder Datum.</p>
         </div>
-        <Link className="button" to="/flugtreffen/neu">Neues Flugtreffen</Link>
+        <Link className="button" to={user ? '/flugtreffen/neu' : '/login'}>Neues Flugtreffen</Link>
       </div>
 
       <form className="filter-bar" onSubmit={submitSearch}>

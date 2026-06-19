@@ -92,60 +92,66 @@ class MeetupsController extends BaseApiController
             ->orderBy('pilot_name', 'ASC')
             ->findAll();
 
+        foreach ($meetup['participants'] as &$participant) {
+            $participant['id'] = (int) $participant['id'];
+            $participant['meetup_id'] = (int) $participant['meetup_id'];
+            $participant['user_id'] = $participant['user_id'] !== null ? (int) $participant['user_id'] : null;
+        }
+
         return $this->ok($meetup);
     }
 
     public function create()
-{
-    $payload = $this->request->getJSON(true);
+    {
+        $user = $this->requireUser();
+        if (!$user) {
+            return $this->failUnauthorized();
+        }
 
-    if (!$payload) {
-        $payload = $this->request->getPost();
+        $payload = $this->request->getJSON(true);
+
+        if (!$payload) {
+            $payload = $this->request->getPost();
+        }
+
+        $data = [
+            'creator_user_id'  => (int) $user['id'],
+            'title'            => trim((string) ($payload['title'] ?? '')),
+            'spot'             => trim((string) ($payload['spot'] ?? '')),
+            'region'           => trim((string) ($payload['region'] ?? '')),
+            'date'             => $payload['date'] ?? '',
+            'time'             => $payload['time'] ?? '',
+            'experience_level' => trim((string) ($payload['experience_level'] ?? '')),
+            'max_participants' => (int) ($payload['max_participants'] ?? 0),
+            'description'      => trim((string) ($payload['description'] ?? '')),
+            'status'           => 'offen',
+        ];
+
+        $newId = $this->meetups->insert($data, true);
+
+        if (!$newId) {
+            return $this->failValidation($this->meetups->errors());
+        }
+
+        $created = $this->withComputedFields([$this->meetups->find($newId)])[0];
+
+        return $this->ok($created, 'Flugtreffen wurde erstellt', 201);
     }
-
-    $data = [
-        'title'            => trim((string) ($payload['title'] ?? '')),
-        'spot'             => trim((string) ($payload['spot'] ?? '')),
-        'region'           => trim((string) ($payload['region'] ?? '')),
-        'date'             => $payload['date'] ?? '',
-        'time'             => $payload['time'] ?? '',
-        'experience_level' => trim((string) ($payload['experience_level'] ?? '')),
-        'max_participants' => (int) ($payload['max_participants'] ?? 0),
-        'description'      => trim((string) ($payload['description'] ?? '')),
-        'status'           => 'offen',
-    ];
-
-    $newId = $this->meetups->insert($data, true);
-
-    if (!$newId) {
-        return $this->failValidation($this->meetups->errors());
-    }
-
-    $created = $this->meetups->find($newId);
-
-    return $this->ok([
-        'id'                => (int) $created['id'],
-        'title'             => $created['title'],
-        'spot'              => $created['spot'],
-        'region'            => $created['region'],
-        'date'              => $created['date'],
-        'time'              => $created['time'],
-        'experience_level'  => $created['experience_level'],
-        'max_participants'  => (int) $created['max_participants'],
-        'description'       => $created['description'],
-        'status'            => $created['status'],
-        'participant_count' => 0,
-        'free_places'       => (int) $created['max_participants'],
-        'created_at'        => $created['created_at'] ?? null,
-        'updated_at'        => $created['updated_at'] ?? null,
-    ], 'Flugtreffen wurde erstellt', 201);
-}
 
     public function update($id = null)
     {
+        $user = $this->requireUser();
+        if (!$user) {
+            return $this->failUnauthorized();
+        }
+
         $meetup = $this->meetups->find((int) $id);
         if (!$meetup) {
             return $this->failNotFoundMessage('Flugtreffen nicht gefunden');
+        }
+
+        if (!$this->isCreator($meetup, (int) $user['id'])) {
+            return $this->failForbidden('Nur der Ersteller kann dieses Flugtreffen bearbeiten.');
         }
 
         $payload = $this->jsonPayload();
@@ -170,9 +176,18 @@ class MeetupsController extends BaseApiController
 
     public function delete($id = null)
     {
+        $user = $this->requireUser();
+        if (!$user) {
+            return $this->failUnauthorized();
+        }
+
         $meetup = $this->meetups->find((int) $id);
         if (!$meetup) {
             return $this->failNotFoundMessage('Flugtreffen nicht gefunden');
+        }
+
+        if (!$this->isCreator($meetup, (int) $user['id'])) {
+            return $this->failForbidden('Nur der Ersteller kann dieses Flugtreffen löschen.');
         }
 
         $this->meetups->delete((int) $id);
@@ -182,12 +197,12 @@ class MeetupsController extends BaseApiController
 
     public function join($id = null)
     {
-        $payload = $this->jsonPayload();
-        $pilotName = trim((string) ($payload['pilot_name'] ?? ''));
-
-        if ($pilotName === '') {
-            return $this->failValidation(['pilot_name' => 'Bitte gib einen Pilotennamen ein.']);
+        $user = $this->requireUser();
+        if (!$user) {
+            return $this->failUnauthorized();
         }
+
+        $pilotName = $user['display_name'];
 
         $meetup = $this->meetups->find((int) $id);
         if (!$meetup) {
@@ -196,7 +211,7 @@ class MeetupsController extends BaseApiController
 
         $existing = $this->participants
             ->where('meetup_id', (int) $id)
-            ->where('pilot_name', $pilotName)
+            ->where('user_id', (int) $user['id'])
             ->first();
 
         if ($existing) {
@@ -214,6 +229,7 @@ class MeetupsController extends BaseApiController
 
         $this->participants->insert([
             'meetup_id'  => (int) $id,
+            'user_id'    => (int) $user['id'],
             'pilot_name' => $pilotName,
         ]);
 
@@ -224,11 +240,9 @@ class MeetupsController extends BaseApiController
 
     public function leave($id = null)
     {
-        $payload = $this->jsonPayload();
-        $pilotName = trim((string) ($payload['pilot_name'] ?? ''));
-
-        if ($pilotName === '') {
-            return $this->failValidation(['pilot_name' => 'Bitte gib einen Pilotennamen ein.']);
+        $user = $this->requireUser();
+        if (!$user) {
+            return $this->failUnauthorized();
         }
 
         $meetup = $this->meetups->find((int) $id);
@@ -238,7 +252,7 @@ class MeetupsController extends BaseApiController
 
         $participant = $this->participants
             ->where('meetup_id', (int) $id)
-            ->where('pilot_name', $pilotName)
+            ->where('user_id', (int) $user['id'])
             ->first();
 
         if ($participant) {
@@ -265,6 +279,8 @@ class MeetupsController extends BaseApiController
 
     private function withComputedFields(array $meetups): array
     {
+        $currentUser = $this->currentUser();
+
         foreach ($meetups as &$meetup) {
             $count = $this->participants
                 ->where('meetup_id', (int) $meetup['id'])
@@ -275,9 +291,16 @@ class MeetupsController extends BaseApiController
             $meetup['free_places'] = max(0, $max - $count);
             $meetup['status'] = $count >= $max ? 'voll' : 'offen';
             $meetup['id'] = (int) $meetup['id'];
+            $meetup['creator_user_id'] = ($meetup['creator_user_id'] ?? null) !== null ? (int) $meetup['creator_user_id'] : null;
             $meetup['max_participants'] = (int) $meetup['max_participants'];
+            $meetup['can_manage'] = $currentUser !== null && $this->isCreator($meetup, (int) $currentUser['id']);
         }
 
         return $meetups;
+    }
+
+    private function isCreator(array $meetup, int $userId): bool
+    {
+        return isset($meetup['creator_user_id']) && (int) $meetup['creator_user_id'] === $userId;
     }
 }

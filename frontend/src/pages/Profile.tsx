@@ -1,34 +1,44 @@
-import { useState } from 'react';
-import { usePilotName } from '../hooks/usePilotName';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Profile() {
-  const { pilotName, setPilotName } = usePilotName();
-  const [draft, setDraft] = useState<string>(pilotName);
-  const [saved, setSaved] = useState<boolean>(false);
+  const { user, loading, logout } = useAuth();
 
-  function save(): void {
-    setPilotName(draft);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  if (loading) {
+    return <p>Lade Profil...</p>;
+  }
+
+  if (!user) {
+    return (
+      <section className="form-page">
+        <h1>Profil</h1>
+        <div className="form-card">
+          <p>Bitte melde dich an, um dein Profil, Teilnahmen, Gruppen und Chat-Nachrichten zu verwenden.</p>
+          <div className="actions">
+            <Link className="button" to="/login">Einloggen</Link>
+            <Link className="button secondary" to="/registrieren">Registrieren</Link>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
     <section className="form-page">
       <h1>Profil</h1>
-      <p>
-        Da es in diesem Prototyp kein echtes Login gibt, wird dein Pilotinnen- oder Pilotenname
-        lokal im Browser gespeichert. Dieser Name wird für Teilnahmen, Gruppen und Chat verwendet.
-      </p>
 
-      <div className="form-card">
-        <label>
-          Dein Name
-          <input value={draft} onChange={(event) => setDraft(event.target.value)} />
-        </label>
+      <div className="form-card profile-card">
+        <div>
+          <span className="profile-label">Name</span>
+          <strong>{user.display_name}</strong>
+        </div>
 
-        <button onClick={save}>Profil speichern</button>
+        <div>
+          <span className="profile-label">E-Mail</span>
+          <strong>{user.email}</strong>
+        </div>
 
-        {saved && <p className="message success">Name gespeichert.</p>}
+        <button className="secondary-button" onClick={() => void logout()}>Logout</button>
       </div>
     </section>
   );

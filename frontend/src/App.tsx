@@ -7,8 +7,12 @@ import Groups from './pages/Groups';
 import GroupDetail from './pages/GroupDetail';
 import Chat from './pages/Chat';
 import Profile from './pages/Profile';
+import AuthPage from './pages/AuthPage';
+import { useAuth } from './hooks/useAuth';
 
 export default function App() {
+  const { user, logout } = useAuth();
+
   return (
     <>
       <header className="site-header">
@@ -23,7 +27,15 @@ export default function App() {
           <NavLink to="/gruppen">Gruppen</NavLink>
           <NavLink to="/chat">Chat</NavLink>
           <NavLink to="/profil">Profil</NavLink>
+          {!user && <NavLink to="/login">Login</NavLink>}
         </nav>
+
+        {user && (
+          <div className="account-menu">
+            <span>{user.display_name}</span>
+            <button className="secondary-button" onClick={() => void logout()}>Logout</button>
+          </div>
+        )}
       </header>
 
       <main className="container">
@@ -37,6 +49,8 @@ export default function App() {
           <Route path="/gruppen/:id" element={<GroupDetail />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/profil" element={<Profile />} />
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/registrieren" element={<AuthPage />} />
         </Routes>
       </main>
     </>

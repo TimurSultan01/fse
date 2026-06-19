@@ -10,6 +10,11 @@ $routes->get('api/test', 'Api\Test::index');
 
 // API routes for React frontend
 $routes->group('api', ['namespace' => 'App\Controllers\Api'], static function ($routes) {
+    $routes->get('auth/me', 'AuthController::me');
+    $routes->post('auth/register', 'AuthController::register');
+    $routes->post('auth/login', 'AuthController::login');
+    $routes->post('auth/logout', 'AuthController::logout');
+
     $routes->get('meetups', 'MeetupsController::index');
     $routes->get('meetups/filters', 'MeetupsController::filters');
     $routes->get('meetups/(:num)', 'MeetupsController::show/$1');
@@ -22,6 +27,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\Api'], static function ($
     $routes->get('groups', 'GroupsController::index');
     $routes->get('groups/(:num)', 'GroupsController::show/$1');
     $routes->post('groups', 'GroupsController::create');
+    $routes->put('groups/(:num)', 'GroupsController::update/$1');
+    $routes->delete('groups/(:num)', 'GroupsController::delete/$1');
     $routes->post('groups/(:num)/join', 'GroupsController::join/$1');
     $routes->post('groups/(:num)/leave', 'GroupsController::leave/$1');
 

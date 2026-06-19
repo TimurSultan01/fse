@@ -9,7 +9,7 @@ class GroupModel extends Model
     protected $table = 'groups';
     protected $primaryKey = 'id';
     protected $returnType = 'array';
-    protected $allowedFields = ['name', 'region', 'description'];
+    protected $allowedFields = ['creator_user_id', 'name', 'region', 'description'];
     protected $useTimestamps = true;
 
     protected $validationRules = [

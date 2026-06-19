@@ -9,7 +9,7 @@ class GroupMemberModel extends Model
     protected $table = 'group_members';
     protected $primaryKey = 'id';
     protected $returnType = 'array';
-    protected $allowedFields = ['group_id', 'pilot_name'];
+    protected $allowedFields = ['group_id', 'user_id', 'pilot_name'];
     protected $useTimestamps = true;
 
     protected $validationRules = [

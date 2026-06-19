@@ -1,22 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
-import { usePilotName } from '../hooks/usePilotName';
+import { useAuth } from '../hooks/useAuth';
 import type { MeetupDetail as MeetupDetailType } from '../types';
 
 export default function MeetupDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { pilotName, setPilotName } = usePilotName();
+  const { user } = useAuth();
 
   const [meetup, setMeetup] = useState<MeetupDetailType | null>(null);
-  const [nameDraft, setNameDraft] = useState<string>(pilotName);
   const [message, setMessage] = useState<string>('');
   const [error, setError] = useState<string>('');
 
   const joined = meetup?.participants?.some(
-    (participant) => participant.pilot_name.toLowerCase() === pilotName.toLowerCase()
+    (participant) => participant.user_id === user?.id
+      || participant.pilot_name.toLowerCase() === user?.display_name.toLowerCase()
   ) ?? false;
+  const canManage = meetup?.can_manage === true;
 
   async function loadMeetup(): Promise<void> {
     if (!id) return;
@@ -29,27 +30,28 @@ export default function MeetupDetail() {
   }
 
   useEffect(() => {
-    void loadMeetup();
+    const timeoutId = window.setTimeout(() => {
+      void loadMeetup();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function toggleParticipation(): Promise<void> {
     if (!id) return;
-
-    const finalName = nameDraft.trim();
-    if (!finalName) {
-      setError('Bitte gib deinen Namen ein.');
+    if (!user) {
+      setError('Bitte melde dich zuerst an.');
       return;
     }
 
-    setPilotName(finalName);
     setMessage('');
     setError('');
 
     try {
       const updated = joined
-        ? await api.leaveMeetup(id, finalName)
-        : await api.joinMeetup(id, finalName);
+        ? await api.leaveMeetup(id)
+        : await api.joinMeetup(id);
 
       setMeetup(updated);
       setMessage(joined ? 'Teilnahme wurde zurückgenommen.' : 'Du nimmst jetzt am Flugtreffen teil.');
@@ -84,7 +86,7 @@ export default function MeetupDetail() {
 
   return (
     <section>
-      <button className="link-button" onClick={() => navigate(-1)}>← Zurück</button>
+      <button className="link-button" onClick={() => navigate(-1)}>Zurück</button>
 
       <article className="detail">
         <div className="card-header">
@@ -116,20 +118,24 @@ export default function MeetupDetail() {
         )}
 
         <div className="join-box">
-          <label>
-            Dein Name für die Teilnahme
-            <input value={nameDraft} onChange={(event) => setNameDraft(event.target.value)} />
-          </label>
+          <div>
+            <strong>{user ? user.display_name : 'Nicht eingeloggt'}</strong>
+            <p>{user ? 'Deine Teilnahme wird mit deinem Account gespeichert.' : 'Melde dich an, um teilzunehmen.'}</p>
+          </div>
 
-          <button onClick={() => void toggleParticipation()} disabled={isFull}>
+          <button onClick={() => void toggleParticipation()} disabled={isFull || !user}>
             {joined ? 'Absagen' : 'Teilnehmen'}
           </button>
         </div>
 
         <div className="actions">
-          <Link className="button secondary" to={`/flugtreffen/${meetup.id}/bearbeiten`}>Bearbeiten</Link>
+          {canManage && (
+            <>
+              <Link className="button secondary" to={`/flugtreffen/${meetup.id}/bearbeiten`}>Bearbeiten</Link>
+              <button className="danger-button" onClick={() => void deleteMeetup()}>Löschen</button>
+            </>
+          )}
           <Link className="button secondary" to="/flugtreffen">Zurück zur Übersicht</Link>
-          <button className="danger-button" onClick={() => void deleteMeetup()}>Löschen</button>
         </div>
 
         {isFull && <p className="message error">Dieses Treffen ist voll.</p>}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api } from '../api';
-import { usePilotName } from '../hooks/usePilotName';
+import { useAuth } from '../hooks/useAuth';
 import type { ChatMessage } from '../types';
 
 type ChatBoxProps = {
@@ -11,9 +11,8 @@ type ChatBoxProps = {
 };
 
 export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxProps) {
-  const { pilotName, setPilotName } = usePilotName();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [author, setAuthor] = useState<string>(pilotName);
   const [text, setText] = useState<string>('');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -27,7 +26,11 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
   }
 
   useEffect(() => {
-    void loadMessages();
+    const timeoutId = window.setTimeout(() => {
+      void loadMessages();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, meetupId]);
 
@@ -46,14 +49,17 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
     event.preventDefault();
     setError('');
 
-    const finalAuthor = author.trim();
     const finalText = text.trim();
 
-    if (!finalAuthor || !finalText) return;
+    if (!user) {
+      setError('Bitte melde dich zuerst an.');
+      return;
+    }
+
+    if (!finalText) return;
 
     try {
-      setPilotName(finalAuthor);
-      const created = await api.sendMessage(finalAuthor, finalText, {
+      const created = await api.sendMessage(finalText, {
         group_id: groupId,
         meetup_id: meetupId,
       });
@@ -96,7 +102,7 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
           <article className="chat-message" key={message.id}>
             <div className="chat-header">
               <strong>{message.author}</strong>
-              {message.author.toLowerCase() === author.trim().toLowerCase() && (
+              {(message.user_id === user?.id || message.author.toLowerCase() === user?.display_name.toLowerCase()) && (
                 <button className="mini-danger" onClick={() => void deleteMessage(message.id)}>Löschen</button>
               )}
             </div>
@@ -109,19 +115,15 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
       </div>
 
       <form className="chat-form" onSubmit={(event) => void send(event)}>
-        <input
-          value={author}
-          onChange={(event) => setAuthor(event.target.value)}
-          placeholder="Dein Name"
-          required
-        />
+        <span className="chat-author">{user ? user.display_name : 'Nicht eingeloggt'}</span>
         <input
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder="Neue Nachricht"
+          disabled={!user}
           required
         />
-        <button>Senden</button>
+        <button disabled={!user}>Senden</button>
       </form>
 
       {error && <p className="message error">{error}</p>}

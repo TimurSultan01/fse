@@ -11,6 +11,7 @@ class MeetupModel extends Model
     protected $returnType = 'array';
 
     protected $allowedFields = [
+        'creator_user_id',
         'title',
         'spot',
         'region',

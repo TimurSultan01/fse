@@ -9,7 +9,7 @@ class ParticipantModel extends Model
     protected $table = 'participants';
     protected $primaryKey = 'id';
     protected $returnType = 'array';
-    protected $allowedFields = ['meetup_id', 'pilot_name'];
+    protected $allowedFields = ['meetup_id', 'user_id', 'pilot_name'];
     protected $useTimestamps = true;
 
     protected $validationRules = [
