@@ -2,11 +2,12 @@
 
 namespace App\Controllers\Api;
 
-use CodeIgniter\RESTful\ResourceController;
+use CodeIgniter\Controller;
+use CodeIgniter\API\ResponseTrait;
 
-class BaseApiController extends ResourceController
+class BaseApiController extends Controller
 {
-    protected $format = 'json';
+    use ResponseTrait;
 
     protected function ok(mixed $data = null, string $message = 'OK', int $status = 200)
     {
@@ -32,5 +33,10 @@ class BaseApiController extends ResourceController
             'success' => false,
             'message' => $message,
         ], 404);
+    }
+
+    protected function jsonPayload(): array
+    {
+        return $this->request->getJSON(true) ?? $this->request->getPost() ?? [];
     }
 }

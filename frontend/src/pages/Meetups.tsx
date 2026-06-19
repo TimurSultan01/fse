@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
-import type { Meetup, MeetupFilters } from '../types';
+import type { FilterOptions, Meetup, MeetupFilters } from '../types';
 
 export default function Meetups() {
   const [meetups, setMeetups] = useState<Meetup[]>([]);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({ regions: [], levels: [] });
   const [filters, setFilters] = useState<MeetupFilters>({
     search: '',
     region: '',
     level: '',
+    date_from: '',
+    sort: '',
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -19,7 +22,12 @@ export default function Meetups() {
     setError('');
 
     try {
-      setMeetups(await api.getMeetups(filters));
+      const [meetupData, optionData] = await Promise.all([
+        api.getMeetups(filters),
+        api.getMeetupFilters(),
+      ]);
+      setMeetups(meetupData);
+      setFilterOptions(optionData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
     } finally {
@@ -30,17 +38,7 @@ export default function Meetups() {
   useEffect(() => {
     void loadMeetups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.region, filters.level]);
-
-  const regions = useMemo<string[]>(
-    () => [...new Set(meetups.map((meetup) => meetup.region))].sort(),
-    [meetups]
-  );
-
-  const levels = useMemo<string[]>(
-    () => [...new Set(meetups.map((meetup) => meetup.experience_level))].sort(),
-    [meetups]
-  );
+  }, [filters.region, filters.level, filters.date_from, filters.sort]);
 
   function updateFilter(event: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void {
     setFilters((current) => ({
@@ -54,12 +52,16 @@ export default function Meetups() {
     void loadMeetups();
   }
 
+  function resetFilters(): void {
+    setFilters({ search: '', region: '', level: '', date_from: '', sort: '' });
+  }
+
   return (
     <section>
       <div className="page-title">
         <div>
           <h1>Flugtreffen</h1>
-          <p>Finde passende Treffen nach Spot, Region, Beschreibung oder Level.</p>
+          <p>Suche nach Titel, Spot, Region oder Beschreibung und filtere nach Region, Level oder Datum.</p>
         </div>
         <Link className="button" to="/flugtreffen/neu">Neues Flugtreffen</Link>
       </div>
@@ -74,19 +76,27 @@ export default function Meetups() {
 
         <select name="region" value={filters.region} onChange={updateFilter}>
           <option value="">Alle Regionen</option>
-          {regions.map((region) => (
+          {filterOptions.regions.map((region) => (
             <option key={region} value={region}>{region}</option>
           ))}
         </select>
 
         <select name="level" value={filters.level} onChange={updateFilter}>
           <option value="">Alle Level</option>
-          {levels.map((level) => (
+          {filterOptions.levels.map((level) => (
             <option key={level} value={level}>{level}</option>
           ))}
         </select>
 
+        <input type="date" name="date_from" value={filters.date_from} onChange={updateFilter} />
+
+        <select name="sort" value={filters.sort} onChange={updateFilter}>
+          <option value="">Datum aufsteigend</option>
+          <option value="created_desc">Neueste zuerst</option>
+        </select>
+
         <button>Suchen</button>
+        <button type="button" className="secondary-button" onClick={resetFilters}>Zurücksetzen</button>
       </form>
 
       {loading && <p>Lade Flugtreffen...</p>}

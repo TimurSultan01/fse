@@ -90,7 +90,8 @@ a {
 .page-title,
 .filter-bar,
 .chat-form,
-.two-columns {
+.two-columns,
+.join-box {
   display: flex;
   gap: 14px;
   align-items: center;
@@ -113,9 +114,22 @@ button {
 }
 
 .button.secondary,
+.secondary-button,
 .link-button {
   background: #e5f4f2;
   color: #176c72;
+}
+
+.danger-button,
+.mini-danger {
+  background: #ffe3e3;
+  color: #b42318;
+}
+
+.mini-danger {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.8rem;
 }
 
 button:disabled {
@@ -124,7 +138,8 @@ button:disabled {
 }
 
 .filter-bar,
-.form-card {
+.form-card,
+.join-box {
   background: white;
   padding: 18px;
   border-radius: 18px;
@@ -134,7 +149,7 @@ button:disabled {
 
 .filter-bar input {
   flex: 1;
-  min-width: 260px;
+  min-width: 220px;
 }
 
 input,
@@ -167,7 +182,8 @@ textarea {
   transform: translateY(-2px);
 }
 
-.card-header {
+.card-header,
+.chat-header {
   display: flex;
   justify-content: space-between;
   gap: 18px;
@@ -219,6 +235,7 @@ textarea {
 
 .detail {
   margin-top: 16px;
+  margin-bottom: 24px;
 }
 
 .detail-facts {
@@ -235,7 +252,8 @@ textarea {
   gap: 16px;
 }
 
-.form-card label {
+.form-card label,
+.join-box label {
   display: grid;
   gap: 8px;
   font-weight: 700;
@@ -245,7 +263,8 @@ textarea {
   align-items: stretch;
 }
 
-.two-columns > * {
+.two-columns > *,
+.join-box label {
   flex: 1;
 }
 
@@ -260,9 +279,18 @@ textarea {
   color: #067647;
 }
 
-.message.error {
+.message.error,
+.field-error {
   background: #ffe3e3;
   color: #b42318;
+}
+
+.field-error {
+  background: transparent;
+}
+
+.chat-section {
+  margin-top: 24px;
 }
 
 .chat-box {
@@ -294,6 +322,18 @@ textarea {
 
 .chat-form input:nth-child(2) {
   flex: 1;
+  min-width: 420px;
+  font-size: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.checkbox-label input {
+  width: auto;
 }
 
 @media (max-width: 780px) {
@@ -302,7 +342,8 @@ textarea {
   .filter-bar,
   .chat-form,
   .two-columns,
-  .actions {
+  .actions,
+  .join-box {
     flex-direction: column;
     align-items: stretch;
   }

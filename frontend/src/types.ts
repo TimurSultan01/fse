@@ -5,8 +5,6 @@ export type ApiResponse<T> = {
   errors?: Record<string, string> | string[] | string;
 };
 
-export type MeetupStatus = 'offen' | 'voll' | string;
-
 export type Meetup = {
   id: number;
   title: string;
@@ -17,7 +15,7 @@ export type Meetup = {
   experience_level: string;
   max_participants: number;
   description: string;
-  status: MeetupStatus;
+  status: string;
   participant_count: number;
   free_places: number;
   created_at?: string;
@@ -51,6 +49,13 @@ export type MeetupFilters = {
   search: string;
   region: string;
   level: string;
+  date_from: string;
+  sort: string;
+};
+
+export type FilterOptions = {
+  regions: string[];
+  levels: string[];
 };
 
 export type Group = {
@@ -58,13 +63,34 @@ export type Group = {
   name: string;
   region: string;
   description: string;
-  members: number;
+  member_count?: number;
+};
+
+export type GroupMember = {
+  id: number;
+  group_id: number;
+  pilot_name: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type GroupDetail = Group & {
+  members: GroupMember[];
+  member_count: number;
+};
+
+export type GroupFormData = {
+  name: string;
+  region: string;
+  description: string;
 };
 
 export type ChatMessage = {
   id: number;
   author: string;
   text: string;
+  group_id?: number | null;
+  meetup_id?: number | null;
   created_at?: string;
   updated_at?: string;
 };

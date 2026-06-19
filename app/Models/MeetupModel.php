@@ -34,4 +34,10 @@ class MeetupModel extends Model
         'max_participants' => 'required|integer|greater_than[0]',
         'description'      => 'required|min_length[10]',
     ];
+
+    protected $validationMessages = [
+        'date' => [
+            'valid_date' => 'Bitte gib ein gültiges Datum im Format JJJJ-MM-TT ein.',
+        ],
+    ];
 }

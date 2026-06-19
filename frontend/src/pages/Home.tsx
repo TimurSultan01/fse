@@ -7,8 +7,8 @@ export default function Home() {
       <h1>FlightMeet</h1>
       <p>
         FlightMeet hilft Pilotinnen und Piloten dabei, Flugtreffen zu finden,
-        eigene gemeinsame Flugtage zu organisieren und sich in Gruppen oder im
-        Chat auszutauschen.
+        eigene gemeinsame Flugtage zu organisieren, Gruppen beizutreten und
+        einfache Nachrichten auszutauschen.
       </p>
 
       <div className="actions">

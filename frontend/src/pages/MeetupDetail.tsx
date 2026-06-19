@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
+import { usePilotName } from '../hooks/usePilotName';
 import type { MeetupDetail as MeetupDetailType } from '../types';
-
-const PILOT_NAME = 'Gastpilot';
 
 export default function MeetupDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { pilotName, setPilotName } = usePilotName();
 
   const [meetup, setMeetup] = useState<MeetupDetailType | null>(null);
+  const [nameDraft, setNameDraft] = useState<string>(pilotName);
   const [message, setMessage] = useState<string>('');
   const [error, setError] = useState<string>('');
 
   const joined = meetup?.participants?.some(
-    (participant) => participant.pilot_name === PILOT_NAME
+    (participant) => participant.pilot_name.toLowerCase() === pilotName.toLowerCase()
   ) ?? false;
 
   async function loadMeetup(): Promise<void> {
@@ -35,16 +36,37 @@ export default function MeetupDetail() {
   async function toggleParticipation(): Promise<void> {
     if (!id) return;
 
+    const finalName = nameDraft.trim();
+    if (!finalName) {
+      setError('Bitte gib deinen Namen ein.');
+      return;
+    }
+
+    setPilotName(finalName);
     setMessage('');
     setError('');
 
     try {
       const updated = joined
-        ? await api.leaveMeetup(id, PILOT_NAME)
-        : await api.joinMeetup(id, PILOT_NAME);
+        ? await api.leaveMeetup(id, finalName)
+        : await api.joinMeetup(id, finalName);
 
       setMeetup(updated);
       setMessage(joined ? 'Teilnahme wurde zurückgenommen.' : 'Du nimmst jetzt am Flugtreffen teil.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+    }
+  }
+
+  async function deleteMeetup(): Promise<void> {
+    if (!id) return;
+
+    const confirmed = window.confirm('Dieses Flugtreffen wirklich löschen?');
+    if (!confirmed) return;
+
+    try {
+      await api.deleteMeetup(id);
+      navigate('/flugtreffen');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
     }
@@ -93,11 +115,21 @@ export default function MeetupDetail() {
           <p>Noch keine Teilnehmenden.</p>
         )}
 
-        <div className="actions">
+        <div className="join-box">
+          <label>
+            Dein Name für die Teilnahme
+            <input value={nameDraft} onChange={(event) => setNameDraft(event.target.value)} />
+          </label>
+
           <button onClick={() => void toggleParticipation()} disabled={isFull}>
             {joined ? 'Absagen' : 'Teilnehmen'}
           </button>
+        </div>
+
+        <div className="actions">
+          <Link className="button secondary" to={`/flugtreffen/${meetup.id}/bearbeiten`}>Bearbeiten</Link>
           <Link className="button secondary" to="/flugtreffen">Zurück zur Übersicht</Link>
+          <button className="danger-button" onClick={() => void deleteMeetup()}>Löschen</button>
         </div>
 
         {isFull && <p className="message error">Dieses Treffen ist voll.</p>}
