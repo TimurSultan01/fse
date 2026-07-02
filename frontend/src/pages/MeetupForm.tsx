@@ -1,12 +1,28 @@
-import { useEffect, useState } from 'react';
-import type { ChangeEvent, FormEvent } from 'react';
+import { useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { api } from '../api';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from '../lib/toast';
 import { useConfirmStore } from '../stores/useConfirmStore';
 import type { MeetupFormData } from '../types';
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+const meetupSchema = z.object({
+  title: z.string().trim().min(3, 'Der Titel muss mindestens 3 Zeichen haben.').max(120),
+  spot: z.string().trim().min(2, 'Bitte gib einen Flugspot ein.').max(120),
+  region: z.string().trim().min(2, 'Bitte gib eine Region ein.').max(80),
+  date: z.string().min(1, 'Bitte gib ein Datum ein.')
+    .refine((value) => value >= today(), 'Das Datum darf nicht in der Vergangenheit liegen.'),
+  time: z.string().min(1, 'Bitte gib eine Uhrzeit ein.'),
+  experience_level: z.string().min(1),
+  max_participants: z.number({ message: 'Bitte gib eine Zahl ein.' }).int().min(1, 'Mindestens eine Person muss teilnehmen können.'),
+  description: z.string().trim().min(10, 'Die Beschreibung muss mindestens 10 Zeichen haben.'),
+});
 
 const initialForm: MeetupFormData = {
   title: '',
@@ -27,95 +43,61 @@ export default function MeetupForm() {
   const requestConfirmation = useConfirmStore((state) => state.requestConfirmation);
   const queryClient = useQueryClient();
 
-  const [form, setForm] = useState<MeetupFormData>(initialForm);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string>('');
-  const [forbidden, setForbidden] = useState<boolean>(false);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<MeetupFormData>({
+    resolver: zodResolver(meetupSchema),
+    defaultValues: initialForm,
+  });
+
+  const meetupQuery = useQuery({
+    queryKey: ['meetup', id],
+    queryFn: () => api.getMeetup(id!),
+    enabled: isEditMode,
+  });
+
+  const meetup = meetupQuery.data;
+  const forbidden = meetup?.can_manage === false;
 
   useEffect(() => {
-    if (!id) return;
-
-    api.getMeetup(id)
-      .then((meetup) => {
-        if (meetup.can_manage === false) {
-          setForbidden(true);
-          return;
-        }
-
-        setForm({
-          title: meetup.title,
-          spot: meetup.spot,
-          region: meetup.region,
-          date: meetup.date,
-          time: meetup.time.slice(0, 5),
-          experience_level: meetup.experience_level,
-          max_participants: meetup.max_participants,
-          description: meetup.description,
-        });
-      })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Unbekannter Fehler'));
-  }, [id]);
-
-  function validate(data: MeetupFormData): Record<string, string> {
-    const errors: Record<string, string> = {};
-    const today = new Date().toISOString().slice(0, 10);
-
-    if (data.title.trim().length < 3) errors.title = 'Der Titel muss mindestens 3 Zeichen haben.';
-    if (data.spot.trim().length < 2) errors.spot = 'Bitte gib einen Flugspot ein.';
-    if (data.region.trim().length < 2) errors.region = 'Bitte gib eine Region ein.';
-    if (!data.date) errors.date = 'Bitte gib ein Datum ein.';
-    if (data.date && data.date < today) errors.date = 'Das Datum darf nicht in der Vergangenheit liegen.';
-    if (!data.time) errors.time = 'Bitte gib eine Uhrzeit ein.';
-    if (data.max_participants < 1) errors.max_participants = 'Mindestens eine Person muss teilnehmen können.';
-    if (data.description.trim().length < 10) errors.description = 'Die Beschreibung muss mindestens 10 Zeichen haben.';
-
-    return errors;
-  }
-
-  function updateForm(event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): void {
-    const { name, value } = event.target;
-
-    setForm((current) => ({
-      ...current,
-      [name]: name === 'max_participants' ? Number(value) : value,
-    }));
-  }
-
-  async function saveMeetup(): Promise<void> {
-    try {
-      if (id) {
-        await api.updateMeetup(id, form);
-        void queryClient.invalidateQueries({ queryKey: ['meetups'] });
-        toast('Flugtreffen wurde gespeichert.', 'success');
-        navigate(`/flugtreffen/${id}`);
-      } else {
-        const created = await api.createMeetup(form);
-        void queryClient.invalidateQueries({ queryKey: ['meetups'] });
-        toast('Flugtreffen wurde erstellt.', 'success');
-        navigate(`/flugtreffen/${created.id}`);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-      toast(err instanceof Error ? err.message : 'Flugtreffen konnte nicht gespeichert werden.', 'error');
+    if (meetup && meetup.can_manage !== false) {
+      reset({
+        title: meetup.title,
+        spot: meetup.spot,
+        region: meetup.region,
+        date: meetup.date,
+        time: meetup.time.slice(0, 5),
+        experience_level: meetup.experience_level,
+        max_participants: meetup.max_participants,
+        description: meetup.description,
+      });
     }
-  }
+  }, [meetup, reset]);
 
-  async function submitForm(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    setError('');
+  const saveMutation = useMutation({
+    mutationFn: (data: MeetupFormData) => (id ? api.updateMeetup(id, data) : api.createMeetup(data)),
+    onSuccess(saved) {
+      void queryClient.invalidateQueries({ queryKey: ['meetups'] });
+      void queryClient.invalidateQueries({ queryKey: ['meetup', String(saved.id)] });
+      toast(isEditMode ? 'Flugtreffen wurde gespeichert.' : 'Flugtreffen wurde erstellt.', 'success');
+      navigate(`/flugtreffen/${saved.id}`);
+    },
+    onError(err) {
+      toast(err instanceof Error ? err.message : 'Flugtreffen konnte nicht gespeichert werden.', 'error');
+    },
+  });
 
-    const errors = validate(form);
-    setFieldErrors(errors);
-
-    if (Object.keys(errors).length > 0) return;
-
+  function requestSave(data: MeetupFormData): void {
     requestConfirmation({
       title: isEditMode ? 'Änderungen speichern?' : 'Flugtreffen erstellen?',
       message: isEditMode
         ? 'Die Änderungen werden direkt für alle Teilnehmenden sichtbar.'
         : 'Das neue Flugtreffen wird öffentlich in der Übersicht angezeigt.',
       confirmLabel: isEditMode ? 'Speichern' : 'Erstellen',
-      onConfirm: () => void saveMeetup(),
+      onConfirm: () => saveMutation.mutate(data),
     });
   }
 
@@ -147,43 +129,43 @@ export default function MeetupForm() {
     <section className="form-page">
       <h1>{isEditMode ? 'Flugtreffen bearbeiten' : 'Neues Flugtreffen erstellen'}</h1>
 
-      <form className="form-card" onSubmit={(event) => void submitForm(event)}>
+      <form className="form-card" onSubmit={(event) => void handleSubmit(requestSave)(event)}>
         <label>
           Titel
-          <input name="title" value={form.title} onChange={updateForm} required />
-          {fieldErrors.title && <small className="field-error">{fieldErrors.title}</small>}
+          <input {...register('title')} />
+          {errors.title && <small className="field-error">{errors.title.message}</small>}
         </label>
 
         <label>
           Flugspot
-          <input name="spot" value={form.spot} onChange={updateForm} required />
-          {fieldErrors.spot && <small className="field-error">{fieldErrors.spot}</small>}
+          <input {...register('spot')} />
+          {errors.spot && <small className="field-error">{errors.spot.message}</small>}
         </label>
 
         <label>
           Region
-          <input name="region" value={form.region} onChange={updateForm} required />
-          {fieldErrors.region && <small className="field-error">{fieldErrors.region}</small>}
+          <input {...register('region')} />
+          {errors.region && <small className="field-error">{errors.region.message}</small>}
         </label>
 
         <div className="two-columns">
           <label>
             Datum
-            <input type="date" name="date" value={form.date} onChange={updateForm} required />
-            {fieldErrors.date && <small className="field-error">{fieldErrors.date}</small>}
+            <input type="date" {...register('date')} />
+            {errors.date && <small className="field-error">{errors.date.message}</small>}
           </label>
 
           <label>
             Uhrzeit
-            <input type="time" name="time" value={form.time} onChange={updateForm} required />
-            {fieldErrors.time && <small className="field-error">{fieldErrors.time}</small>}
+            <input type="time" {...register('time')} />
+            {errors.time && <small className="field-error">{errors.time.message}</small>}
           </label>
         </div>
 
         <div className="two-columns">
           <label>
             Erfahrungslevel
-            <select name="experience_level" value={form.experience_level} onChange={updateForm}>
+            <select {...register('experience_level')}>
               <option>Einsteiger</option>
               <option>Fortgeschritten</option>
               <option>Alle Level</option>
@@ -192,32 +174,20 @@ export default function MeetupForm() {
 
           <label>
             Maximale Teilnehmerzahl
-            <input
-              type="number"
-              min="1"
-              name="max_participants"
-              value={form.max_participants}
-              onChange={updateForm}
-              required
-            />
-            {fieldErrors.max_participants && <small className="field-error">{fieldErrors.max_participants}</small>}
+            <input type="number" min="1" {...register('max_participants', { valueAsNumber: true })} />
+            {errors.max_participants && <small className="field-error">{errors.max_participants.message}</small>}
           </label>
         </div>
 
         <label>
           Beschreibung
-          <textarea
-            name="description"
-            value={form.description}
-            onChange={updateForm}
-            rows={5}
-            required
-          />
-          {fieldErrors.description && <small className="field-error">{fieldErrors.description}</small>}
+          <textarea rows={5} {...register('description')} />
+          {errors.description && <small className="field-error">{errors.description.message}</small>}
         </label>
 
-        <button>{isEditMode ? 'Änderungen speichern' : 'Flugtreffen speichern'}</button>
-        {error && <p className="message error">{error}</p>}
+        <button disabled={isSubmitting || saveMutation.isPending}>
+          {isEditMode ? 'Änderungen speichern' : 'Flugtreffen speichern'}
+        </button>
       </form>
     </section>
   );

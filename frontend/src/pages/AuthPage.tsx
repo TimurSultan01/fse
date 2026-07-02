@@ -1,39 +1,56 @@
-import { useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useAuth } from '../hooks/useAuth';
+
+const authSchema = z.object({
+  display_name: z.string().trim().max(80).optional(),
+  email: z.string().trim().min(1, 'Bitte gib eine E-Mail-Adresse ein.').email('Bitte gib eine gültige E-Mail-Adresse ein.'),
+  password: z.string().min(8, 'Das Passwort muss mindestens 8 Zeichen lang sein.'),
+});
+
+type AuthFormValues = z.infer<typeof authSchema>;
 
 export default function AuthPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { login, register } = useAuth();
+  const { login, register: registerUser } = useAuth();
   const isRegister = location.pathname === '/registrieren';
+  const title = isRegister ? 'Registrieren' : 'Einloggen';
 
-  const [displayName, setDisplayName] = useState<string>('');
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [error, setError] = useState<string>('');
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<AuthFormValues>({
+    resolver: zodResolver(authSchema),
+    defaultValues: { display_name: '', email: '', password: '' },
+  });
 
-  const title = useMemo(() => isRegister ? 'Registrieren' : 'Einloggen', [isRegister]);
+  useEffect(() => {
+    reset({ display_name: '', email: '', password: '' });
+  }, [isRegister, reset]);
 
-  async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    setError('');
-    setSubmitting(true);
+  async function onSubmit(values: AuthFormValues): Promise<void> {
+    if (isRegister && (values.display_name ?? '').trim().length < 2) {
+      setError('display_name', { message: 'Der Name muss mindestens 2 Zeichen lang sein.' });
+      return;
+    }
 
     try {
       if (isRegister) {
-        await register({ display_name: displayName, email, password });
+        await registerUser({ display_name: values.display_name!.trim(), email: values.email, password: values.password });
       } else {
-        await login({ email, password });
+        await login({ email: values.email, password: values.password });
       }
 
       navigate('/profil');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-    } finally {
-      setSubmitting(false);
+      setError('root', { message: err instanceof Error ? err.message : 'Unbekannter Fehler' });
     }
   }
 
@@ -41,46 +58,34 @@ export default function AuthPage() {
     <section className="form-page auth-page">
       <h1>{title}</h1>
 
-      <form className="form-card" onSubmit={(event) => void submit(event)}>
+      <form className="form-card" onSubmit={(event) => void handleSubmit(onSubmit)(event)}>
         {isRegister && (
           <label>
             Pilotinnen- oder Pilotenname
-            <input
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-              minLength={2}
-              maxLength={80}
-              required
-            />
+            <input {...register('display_name')} autoComplete="nickname" />
+            {errors.display_name && <small className="field-error">{errors.display_name.message}</small>}
           </label>
         )}
 
         <label>
           E-Mail
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            autoComplete="email"
-            required
-          />
+          <input type="email" autoComplete="email" {...register('email')} />
+          {errors.email && <small className="field-error">{errors.email.message}</small>}
         </label>
 
         <label>
           Passwort
           <input
             type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
             autoComplete={isRegister ? 'new-password' : 'current-password'}
-            minLength={8}
-            required
+            {...register('password')}
           />
+          {errors.password && <small className="field-error">{errors.password.message}</small>}
         </label>
 
-        <button disabled={submitting}>{submitting ? 'Bitte warten...' : title}</button>
+        <button disabled={isSubmitting}>{isSubmitting ? 'Bitte warten...' : title}</button>
 
-        {error && <p className="message error">{error}</p>}
+        {errors.root && <p className="message error">{errors.root.message}</p>}
       </form>
 
       <p className="auth-switch">

@@ -1,0 +1,1 @@
+import{l as e}from"./index-CyxeVis4.js";import{t}from"./ChatBox-DfAcwXnO.js";var n=e();function r(){return(0,n.jsx)(t,{title:`Allgemeiner Chat`})}export{r as default};

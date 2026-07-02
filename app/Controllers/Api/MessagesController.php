@@ -15,17 +15,20 @@ class MessagesController extends BaseApiController
 
     public function index()
     {
-        $groupId = $this->request->getGet('group_id');
+        $groupId  = $this->request->getGet('group_id');
         $meetupId = $this->request->getGet('meetup_id');
 
         $builder = $this->messages->builder();
 
+        // Ein Chat gehört genau zu einer Gruppe, einem Flugtreffen – oder ist der
+        // allgemeine Chat. Ohne diese Trennung würden Gruppen-/Treffen-Nachrichten
+        // im allgemeinen Chat auftauchen.
         if ($groupId !== null && $groupId !== '') {
             $builder->where('group_id', (int) $groupId);
-        }
-
-        if ($meetupId !== null && $meetupId !== '') {
+        } elseif ($meetupId !== null && $meetupId !== '') {
             $builder->where('meetup_id', (int) $meetupId);
+        } else {
+            $builder->where('group_id', null)->where('meetup_id', null);
         }
 
         $rows = $builder
@@ -33,14 +36,7 @@ class MessagesController extends BaseApiController
             ->get()
             ->getResultArray();
 
-        foreach ($rows as &$row) {
-            $row['id'] = (int) $row['id'];
-            $row['user_id'] = $row['user_id'] !== null ? (int) $row['user_id'] : null;
-            $row['group_id'] = $row['group_id'] !== null ? (int) $row['group_id'] : null;
-            $row['meetup_id'] = $row['meetup_id'] !== null ? (int) $row['meetup_id'] : null;
-        }
-
-        return $this->ok($rows);
+        return $this->ok(array_map([$this, 'presentMessage'], $rows));
     }
 
     public function create()
@@ -64,11 +60,7 @@ class MessagesController extends BaseApiController
             return $this->failValidation($this->messages->errors());
         }
 
-        $message = $this->messages->find($this->messages->getInsertID());
-        $message['id'] = (int) $message['id'];
-        $message['user_id'] = $message['user_id'] !== null ? (int) $message['user_id'] : null;
-        $message['group_id'] = $message['group_id'] !== null ? (int) $message['group_id'] : null;
-        $message['meetup_id'] = $message['meetup_id'] !== null ? (int) $message['meetup_id'] : null;
+        $message = $this->presentMessage($this->messages->find($this->messages->getInsertID()));
 
         return $this->ok($message, 'Nachricht wurde gesendet', 201);
     }
@@ -85,18 +77,25 @@ class MessagesController extends BaseApiController
             return $this->failNotFoundMessage('Nachricht nicht gefunden');
         }
 
-        $ownsMessage = (int) ($message['user_id'] ?? 0) === (int) $user['id']
-            || (($message['user_id'] ?? null) === null && strtolower($message['author']) === strtolower($user['display_name']));
-
-        if (!$ownsMessage) {
-            return $this->respond([
-                'success' => false,
-                'message' => 'Du kannst nur deine eigenen Nachrichten löschen.',
-            ], 403);
+        if ((int) ($message['user_id'] ?? 0) !== (int) $user['id']) {
+            return $this->failForbidden('Du kannst nur deine eigenen Nachrichten löschen.');
         }
 
         $this->messages->delete((int) $id);
 
         return $this->ok(null, 'Nachricht wurde gelöscht');
+    }
+
+    /**
+     * Normalisiert eine Nachricht-Zeile in konsistente Typen für das Frontend.
+     */
+    private function presentMessage(array $row): array
+    {
+        $row['id']        = (int) $row['id'];
+        $row['user_id']   = ($row['user_id'] ?? null) !== null ? (int) $row['user_id'] : null;
+        $row['group_id']  = ($row['group_id'] ?? null) !== null ? (int) $row['group_id'] : null;
+        $row['meetup_id'] = ($row['meetup_id'] ?? null) !== null ? (int) $row['meetup_id'] : null;
+
+        return $row;
     }
 }

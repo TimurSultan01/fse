@@ -34,7 +34,7 @@ export default function SortableCard({ id, children }: SortableCardProps) {
         {...attributes}
         {...listeners}
       >
-        ::
+        ⠿
       </button>
       {children}
     </article>

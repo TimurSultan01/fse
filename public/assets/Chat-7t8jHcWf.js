@@ -1,0 +1,1 @@
+import{l as e}from"./index-Cr4P--7y.js";import{t}from"./ChatBox-CN1M_QFg.js";var n=e();function r(){return(0,n.jsx)(t,{title:`Allgemeiner Chat`})}export{r as default};

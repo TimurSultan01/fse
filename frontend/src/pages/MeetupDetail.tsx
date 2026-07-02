@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from '../lib/toast';
@@ -14,72 +13,51 @@ export default function MeetupDetail() {
   const requestConfirmation = useConfirmStore((state) => state.requestConfirmation);
   const queryClient = useQueryClient();
 
-  const [meetup, setMeetup] = useState<MeetupDetailType | null>(null);
-  const [message, setMessage] = useState<string>('');
-  const [error, setError] = useState<string>('');
+  const meetupQuery = useQuery({
+    queryKey: ['meetup', id],
+    queryFn: () => api.getMeetup(id!),
+    enabled: Boolean(id),
+  });
 
-  const joined = meetup?.participants?.some(
-    (participant) => participant.user_id === user?.id
-      || participant.pilot_name.toLowerCase() === user?.display_name.toLowerCase()
-  ) ?? false;
+  const meetup = meetupQuery.data ?? null;
+  const joined = meetup?.participants?.some((participant) => participant.user_id === user?.id) ?? false;
   const canManage = meetup?.can_manage === true;
 
-  async function loadMeetup(): Promise<void> {
-    if (!id) return;
-
-    try {
-      setMeetup(await api.getMeetup(id));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-    }
+  function syncCaches(updated: MeetupDetailType): void {
+    queryClient.setQueryData(['meetup', id], updated);
+    void queryClient.invalidateQueries({ queryKey: ['meetups'] });
   }
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadMeetup();
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  async function toggleParticipation(): Promise<void> {
-    if (!id) return;
-    if (!user) {
-      setError('Bitte melde dich zuerst an.');
-      return;
-    }
-
-    setMessage('');
-    setError('');
-
-    try {
-      const updated = joined
-        ? await api.leaveMeetup(id)
-        : await api.joinMeetup(id);
-
-      setMeetup(updated);
-      void queryClient.invalidateQueries({ queryKey: ['meetups'] });
-      setMessage(joined ? 'Teilnahme wurde zurückgenommen.' : 'Du nimmst jetzt am Flugtreffen teil.');
+  const participationMutation = useMutation({
+    mutationFn: () => (joined ? api.leaveMeetup(id!) : api.joinMeetup(id!)),
+    onSuccess(updated) {
+      syncCaches(updated);
       toast(joined ? 'Teilnahme wurde zurückgenommen.' : 'Du nimmst jetzt am Flugtreffen teil.', 'success');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+    },
+    onError(err) {
       toast(err instanceof Error ? err.message : 'Teilnahme konnte nicht geändert werden.', 'error');
-    }
-  }
+    },
+  });
 
-  async function deleteMeetup(): Promise<void> {
-    if (!id) return;
-
-    try {
-      await api.deleteMeetup(id);
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteMeetup(id!),
+    onSuccess() {
       void queryClient.invalidateQueries({ queryKey: ['meetups'] });
+      queryClient.removeQueries({ queryKey: ['meetup', id] });
       toast('Flugtreffen wurde gelöscht.', 'success');
       navigate('/flugtreffen');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+    },
+    onError(err) {
       toast(err instanceof Error ? err.message : 'Flugtreffen konnte nicht gelöscht werden.', 'error');
+    },
+  });
+
+  function toggleParticipation(): void {
+    if (!user) {
+      toast('Bitte melde dich zuerst an.', 'error');
+      return;
     }
+    participationMutation.mutate();
   }
 
   function requestDeleteMeetup(): void {
@@ -88,23 +66,27 @@ export default function MeetupDetail() {
       message: 'Diese Aktion entfernt das Flugtreffen und alle zugehörigen Teilnahmen dauerhaft.',
       confirmLabel: 'Löschen',
       tone: 'danger',
-      onConfirm: () => void deleteMeetup(),
+      onConfirm: () => deleteMutation.mutate(),
     });
   }
 
-  if (error && !meetup) {
-    return <p className="message error">{error}</p>;
+  if (meetupQuery.isError) {
+    return (
+      <p className="message error">
+        {meetupQuery.error instanceof Error ? meetupQuery.error.message : 'Unbekannter Fehler'}
+      </p>
+    );
   }
 
   if (!meetup) {
-    return <p>Lade Detailansicht...</p>;
+    return <p className="loading-note">Lade Detailansicht...</p>;
   }
 
   const isFull = meetup.free_places <= 0 && !joined;
 
   return (
     <section>
-      <button className="link-button" onClick={() => navigate(-1)}>Zurück</button>
+      <button className="link-button" onClick={() => navigate(-1)}>← Zurück</button>
 
       <article className="detail">
         <div className="card-header">
@@ -114,7 +96,7 @@ export default function MeetupDetail() {
           </span>
         </div>
 
-        <p>{meetup.description}</p>
+        <p className="detail-lead">{meetup.description}</p>
 
         <dl className="facts detail-facts">
           <div><dt>Flugspot</dt><dd>{meetup.spot}</dd></div>
@@ -126,7 +108,7 @@ export default function MeetupDetail() {
 
         <h2>Teilnehmerliste</h2>
         {meetup.participants.length > 0 ? (
-          <ul>
+          <ul className="compact-list">
             {meetup.participants.map((participant) => (
               <li key={participant.id}>{participant.pilot_name}</li>
             ))}
@@ -141,7 +123,10 @@ export default function MeetupDetail() {
             <p>{user ? 'Deine Teilnahme wird mit deinem Account gespeichert.' : 'Melde dich an, um teilzunehmen.'}</p>
           </div>
 
-          <button onClick={() => void toggleParticipation()} disabled={isFull || !user}>
+          <button
+            onClick={toggleParticipation}
+            disabled={isFull || !user || participationMutation.isPending}
+          >
             {joined ? 'Absagen' : 'Teilnehmen'}
           </button>
         </div>
@@ -150,15 +135,15 @@ export default function MeetupDetail() {
           {canManage && (
             <>
               <Link className="button secondary" to={`/flugtreffen/${meetup.id}/bearbeiten`}>Bearbeiten</Link>
-              <button className="danger-button" onClick={requestDeleteMeetup}>Löschen</button>
+              <button className="danger-button" onClick={requestDeleteMeetup} disabled={deleteMutation.isPending}>
+                Löschen
+              </button>
             </>
           )}
           <Link className="button secondary" to="/flugtreffen">Zurück zur Übersicht</Link>
         </div>
 
         {isFull && <p className="message error">Dieses Treffen ist voll.</p>}
-        {message && <p className="message success">{message}</p>}
-        {error && <p className="message error">{error}</p>}
       </article>
     </section>
   );

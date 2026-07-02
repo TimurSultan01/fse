@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from '../lib/toast';
 import { useConfirmStore } from '../stores/useConfirmStore';
-import type { ChatMessage } from '../types';
 
 type ChatBoxProps = {
   title?: string;
@@ -14,76 +14,60 @@ type ChatBoxProps = {
 
 export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const requestConfirmation = useConfirmStore((state) => state.requestConfirmation);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState<string>('');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
-  const [error, setError] = useState<string>('');
+  const listRef = useRef<HTMLDivElement>(null);
 
-  async function loadMessages(): Promise<void> {
-    try {
-      setMessages(await api.getMessages({ group_id: groupId, meetup_id: meetupId }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-    }
-  }
+  const queryKey = ['messages', { groupId: groupId ?? null, meetupId: meetupId ?? null }];
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadMessages();
-    }, 0);
+  const messagesQuery = useQuery({
+    queryKey,
+    queryFn: () => api.getMessages({ group_id: groupId, meetup_id: meetupId }),
+    refetchInterval: autoRefresh ? 5000 : false,
+  });
 
-    return () => window.clearTimeout(timeoutId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupId, meetupId]);
+  const messages = messagesQuery.data ?? [];
 
   useEffect(() => {
-    if (!autoRefresh) return;
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+  }, [messages.length]);
 
-    const intervalId = window.setInterval(() => {
-      void loadMessages();
-    }, 5000);
+  const sendMutation = useMutation({
+    mutationFn: (message: string) => api.sendMessage(message, { group_id: groupId, meetup_id: meetupId }),
+    onSuccess() {
+      setText('');
+      void queryClient.invalidateQueries({ queryKey });
+    },
+    onError(err) {
+      toast(err instanceof Error ? err.message : 'Nachricht konnte nicht gesendet werden.', 'error');
+    },
+  });
 
-    return () => window.clearInterval(intervalId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh, groupId, meetupId]);
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.deleteMessage(id),
+    onSuccess() {
+      toast('Nachricht wurde gelöscht.', 'success');
+      void queryClient.invalidateQueries({ queryKey });
+    },
+    onError(err) {
+      toast(err instanceof Error ? err.message : 'Nachricht konnte nicht gelöscht werden.', 'error');
+    },
+  });
 
-  async function send(event: FormEvent<HTMLFormElement>): Promise<void> {
+  function send(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    setError('');
-
-    const finalText = text.trim();
 
     if (!user) {
-      setError('Bitte melde dich zuerst an.');
+      toast('Bitte melde dich zuerst an.', 'error');
       return;
     }
 
+    const finalText = text.trim();
     if (!finalText) return;
 
-    try {
-      const created = await api.sendMessage(finalText, {
-        group_id: groupId,
-        meetup_id: meetupId,
-      });
-      setMessages((current) => [...current, created]);
-      setText('');
-      toast('Nachricht wurde gesendet.', 'success');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-      toast(err instanceof Error ? err.message : 'Nachricht konnte nicht gesendet werden.', 'error');
-    }
-  }
-
-  async function deleteMessage(id: number): Promise<void> {
-    try {
-      await api.deleteMessage(id);
-      setMessages((current) => current.filter((message) => message.id !== id));
-      toast('Nachricht wurde gelöscht.', 'success');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
-      toast(err instanceof Error ? err.message : 'Nachricht konnte nicht gelöscht werden.', 'error');
-    }
+    sendMutation.mutate(finalText);
   }
 
   function requestDeleteMessage(id: number): void {
@@ -92,7 +76,7 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
       message: 'Diese Nachricht wird dauerhaft aus dem Chat entfernt.',
       confirmLabel: 'Löschen',
       tone: 'danger',
-      onConfirm: () => void deleteMessage(id),
+      onConfirm: () => deleteMutation.mutate(id),
     });
   }
 
@@ -114,12 +98,12 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
         </label>
       </div>
 
-      <div className="chat-box">
+      <div className="chat-box" ref={listRef}>
         {messages.map((message) => (
           <article className="chat-message" key={message.id}>
             <div className="chat-header">
               <strong>{message.author}</strong>
-              {(message.user_id === user?.id || message.author.toLowerCase() === user?.display_name.toLowerCase()) && (
+              {message.user_id === user?.id && (
                 <button className="mini-danger" onClick={() => requestDeleteMessage(message.id)}>Löschen</button>
               )}
             </div>
@@ -128,10 +112,10 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
           </article>
         ))}
 
-        {messages.length === 0 && <p>Noch keine Nachrichten vorhanden.</p>}
+        {messages.length === 0 && <p className="chat-empty">Noch keine Nachrichten vorhanden.</p>}
       </div>
 
-      <form className="chat-form" onSubmit={(event) => void send(event)}>
+      <form className="chat-form" onSubmit={send}>
         <span className="chat-author">{user ? user.display_name : 'Nicht eingeloggt'}</span>
         <input
           value={text}
@@ -140,10 +124,14 @@ export default function ChatBox({ title = 'Chat', groupId, meetupId }: ChatBoxPr
           disabled={!user}
           required
         />
-        <button disabled={!user}>Senden</button>
+        <button disabled={!user || sendMutation.isPending}>Senden</button>
       </form>
 
-      {error && <p className="message error">{error}</p>}
+      {messagesQuery.isError && (
+        <p className="message error">
+          {messagesQuery.error instanceof Error ? messagesQuery.error.message : 'Unbekannter Fehler'}
+        </p>
+      )}
     </section>
   );
 }

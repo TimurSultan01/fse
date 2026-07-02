@@ -63,13 +63,15 @@ class MeetupsController extends BaseApiController
 
     public function filters()
     {
-        $regions = $this->meetups
+        // Für jede Abfrage eine frische Model-Instanz, damit sich select()/distinct()
+        // nicht über den geteilten Query Builder gegenseitig beeinflussen.
+        $regions = (new MeetupModel())
             ->select('region')
             ->distinct()
             ->orderBy('region', 'ASC')
             ->findAll();
 
-        $levels = $this->meetups
+        $levels = (new MeetupModel())
             ->select('experience_level')
             ->distinct()
             ->orderBy('experience_level', 'ASC')

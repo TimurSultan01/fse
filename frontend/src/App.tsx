@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import ConfirmDialog from './components/ConfirmDialog';
 
@@ -55,6 +55,7 @@ export default function App() {
             <Route path="/profil" element={<Profile />} />
             <Route path="/login" element={<AuthPage />} />
             <Route path="/registrieren" element={<AuthPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </main>
