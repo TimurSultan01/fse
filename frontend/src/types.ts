@@ -12,11 +12,16 @@ export type Meetup = {
   title: string;
   spot: string;
   region: string;
+  latitude?: number | null;
+  longitude?: number | null;
   date: string;
   time: string;
+  end_time?: string | null;
   experience_level: string;
+  takeoff_direction?: string | null;
   max_participants: number;
   description: string;
+  tags?: string[];
   status: string;
   participant_count: number;
   participants?: Participant[];
@@ -43,12 +48,21 @@ export type MeetupFormData = {
   title: string;
   spot: string;
   region: string;
+  latitude: number | null;
+  longitude: number | null;
   date: string;
   time: string;
+  end_time: string;
   experience_level: string;
+  takeoff_direction: string;
   max_participants: number;
   description: string;
+  tags: string[];
 };
+
+export const MEETUP_TAGS = ['Thermik', 'Hike & Fly', 'Streckenflug', 'Soaring', 'Groundhandling', 'Anfängerfreundlich'] as const;
+
+export const WIND_DIRECTIONS = ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'] as const;
 
 export type MeetupFilters = {
   search: string;
@@ -56,6 +70,7 @@ export type MeetupFilters = {
   level: string;
   date_from: string;
   sort: string;
+  tag: string;
 };
 
 export type FilterOptions = {

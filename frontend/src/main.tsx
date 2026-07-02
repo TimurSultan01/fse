@@ -6,6 +6,7 @@ import App from './App';
 import { AuthProvider } from './providers/AuthProvider';
 import { queryClient } from './lib/queryClient';
 import 'toastify-js/src/toastify.css';
+import 'leaflet/dist/leaflet.css';
 import './styles.css';
 
 const rootElement = document.getElementById('root');

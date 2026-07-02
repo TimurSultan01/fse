@@ -1,0 +1,1 @@
+import{u as e}from"./index-BKhKjuIj.js";import{t}from"./ChatBox-Bk1KItMI.js";var n=e();function r(){return(0,n.jsx)(t,{title:`Allgemeiner Chat`})}export{r as default};

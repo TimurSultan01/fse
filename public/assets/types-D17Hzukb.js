@@ -1,0 +1,1 @@
+var e=[`Thermik`,`Hike & Fly`,`Streckenflug`,`Soaring`,`Groundhandling`,`Anfängerfreundlich`],t=[`N`,`NO`,`O`,`SO`,`S`,`SW`,`W`,`NW`];export{t as n,e as t};

@@ -1,0 +1,1 @@
+import{u as e}from"./index-JAqCIDAH.js";import{t}from"./ChatBox-BxFai71l.js";var n=e();function r(){return(0,n.jsx)(t,{title:`Allgemeiner Chat`})}export{r as default};

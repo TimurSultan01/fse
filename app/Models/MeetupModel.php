@@ -15,11 +15,16 @@ class MeetupModel extends Model
         'title',
         'spot',
         'region',
+        'latitude',
+        'longitude',
         'date',
         'time',
+        'end_time',
         'experience_level',
+        'takeoff_direction',
         'max_participants',
         'description',
+        'tags',
         'status',
     ];
 
@@ -34,6 +39,11 @@ class MeetupModel extends Model
         'experience_level' => 'required|max_length[80]',
         'max_participants' => 'required|integer|greater_than[0]',
         'description'      => 'required|min_length[10]',
+        'latitude'         => 'permit_empty|decimal',
+        'longitude'        => 'permit_empty|decimal',
+        'end_time'         => 'permit_empty',
+        'takeoff_direction' => 'permit_empty|max_length[16]',
+        'tags'             => 'permit_empty|max_length[200]',
     ];
 
     protected $validationMessages = [

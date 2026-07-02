@@ -1,11 +1,19 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArcElement, Chart as ChartJS, Legend, Tooltip } from 'chart.js';
+import {
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LinearScale,
+  Tooltip,
+} from 'chart.js';
 import { motion } from 'framer-motion';
-import { Doughnut } from 'react-chartjs-2';
+import { Bar, Doughnut } from 'react-chartjs-2';
 import { api } from '../api';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 export default function Home() {
   const meetupsQuery = useQuery({
@@ -29,8 +37,25 @@ export default function Home() {
     datasets: [
       {
         data: [openMeetups, fullMeetups],
-        backgroundColor: ['#176c72', '#b42318'],
+        backgroundColor: ['#0f8a91', '#c0271c'],
         borderWidth: 0,
+      },
+    ],
+  };
+
+  const regionCounts = meetups.reduce<Record<string, number>>((acc, meetup) => {
+    acc[meetup.region] = (acc[meetup.region] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const regionChartData = {
+    labels: Object.keys(regionCounts),
+    datasets: [
+      {
+        label: 'Flugtreffen',
+        data: Object.values(regionCounts),
+        backgroundColor: '#2f6fed',
+        borderRadius: 8,
       },
     ],
   };
@@ -84,6 +109,25 @@ export default function Home() {
           <Doughnut data={chartData} options={{ plugins: { legend: { position: 'bottom' } } }} />
         </div>
       </section>
+
+      {regionChartData.labels.length > 0 && (
+        <section className="chart-panel chart-panel--wide">
+          <div>
+            <h2>Flugtreffen pro Region</h2>
+            <p>Wo sich aktuell die meisten Flugtage organisieren.</p>
+          </div>
+          <div className="chart-box chart-box--bar">
+            <Bar
+              data={regionChartData}
+              options={{
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+              }}
+            />
+          </div>
+        </section>
+      )}
     </section>
   );
 }

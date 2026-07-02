@@ -119,7 +119,7 @@ class MeetupsController extends BaseApiController
             $payload = $this->request->getPost();
         }
 
-        $data = [
+        $data = array_merge([
             'creator_user_id'  => (int) $user['id'],
             'title'            => trim((string) ($payload['title'] ?? '')),
             'spot'             => trim((string) ($payload['spot'] ?? '')),
@@ -130,7 +130,7 @@ class MeetupsController extends BaseApiController
             'max_participants' => (int) ($payload['max_participants'] ?? 0),
             'description'      => trim((string) ($payload['description'] ?? '')),
             'status'           => 'offen',
-        ];
+        ], $this->extractOptionalFields($payload));
 
         $newId = $this->meetups->insert($data, true);
 
@@ -161,7 +161,7 @@ class MeetupsController extends BaseApiController
 
         $payload = $this->jsonPayload();
 
-        $data = [
+        $data = array_merge([
             'title'            => trim((string) ($payload['title'] ?? $meetup['title'])),
             'spot'             => trim((string) ($payload['spot'] ?? $meetup['spot'])),
             'region'           => trim((string) ($payload['region'] ?? $meetup['region'])),
@@ -170,7 +170,7 @@ class MeetupsController extends BaseApiController
             'experience_level' => trim((string) ($payload['experience_level'] ?? $meetup['experience_level'])),
             'max_participants' => (int) ($payload['max_participants'] ?? $meetup['max_participants']),
             'description'      => trim((string) ($payload['description'] ?? $meetup['description'])),
-        ];
+        ], $this->extractOptionalFields($payload));
 
         if (!$this->meetups->update((int) $id, $data)) {
             return $this->failValidation($this->meetups->errors());
@@ -308,6 +308,11 @@ class MeetupsController extends BaseApiController
             $meetup['creator_user_id'] = ($meetup['creator_user_id'] ?? null) !== null ? (int) $meetup['creator_user_id'] : null;
             $meetup['creator_display_name'] = $creator['display_name'] ?? 'Unbekannt';
             $meetup['max_participants'] = (int) $meetup['max_participants'];
+            $meetup['latitude'] = ($meetup['latitude'] ?? null) !== null ? (float) $meetup['latitude'] : null;
+            $meetup['longitude'] = ($meetup['longitude'] ?? null) !== null ? (float) $meetup['longitude'] : null;
+            $meetup['tags'] = $this->tagsToArray($meetup['tags'] ?? '');
+            $meetup['takeoff_direction'] = ($meetup['takeoff_direction'] ?? '') !== '' ? $meetup['takeoff_direction'] : null;
+            $meetup['end_time'] = ($meetup['end_time'] ?? '') !== '' ? $meetup['end_time'] : null;
             $meetup['participant_count'] = $count;
             $meetup['participants'] = $participants;
             $meetup['free_places'] = max(0, $max - $count);
@@ -321,5 +326,49 @@ class MeetupsController extends BaseApiController
     private function isCreator(array $meetup, int $userId): bool
     {
         return isset($meetup['creator_user_id']) && (int) $meetup['creator_user_id'] === $userId;
+    }
+
+    /**
+     * Liest die optionalen Zusatzfelder (Koordinaten, Startrichtung, Tags,
+     * Enddatum) aus dem Payload und bringt sie in speicherbare Form.
+     */
+    private function extractOptionalFields(array $payload): array
+    {
+        return [
+            'latitude'          => $this->nullableFloat($payload['latitude'] ?? null),
+            'longitude'         => $this->nullableFloat($payload['longitude'] ?? null),
+            'end_time'          => ($payload['end_time'] ?? '') !== '' ? $payload['end_time'] : null,
+            'takeoff_direction' => trim((string) ($payload['takeoff_direction'] ?? '')) ?: null,
+            'tags'              => $this->tagsToString($payload['tags'] ?? []),
+        ];
+    }
+
+    private function nullableFloat($value): ?float
+    {
+        return ($value === null || $value === '') ? null : (float) $value;
+    }
+
+    private function tagsToString($tags): ?string
+    {
+        if (is_string($tags)) {
+            $tags = explode(',', $tags);
+        }
+
+        if (!is_array($tags)) {
+            return null;
+        }
+
+        $clean = array_values(array_filter(array_map(static fn ($tag) => trim((string) $tag), $tags), static fn ($tag) => $tag !== ''));
+
+        return $clean === [] ? null : implode(',', $clean);
+    }
+
+    private function tagsToArray(?string $tags): array
+    {
+        if ($tags === null || trim($tags) === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $tags)), static fn ($tag) => $tag !== ''));
     }
 }

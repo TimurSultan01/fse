@@ -3,7 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from '../lib/toast';
+import { formatDateTime } from '../lib/datetime';
+import { downloadMeetupIcs } from '../lib/ics';
 import { useConfirmStore } from '../stores/useConfirmStore';
+import FavoriteButton from '../components/FavoriteButton';
+import MeetupMap from '../components/MeetupMap';
+import WeatherPanel from '../components/WeatherPanel';
 import type { MeetupDetail as MeetupDetailType } from '../types';
 
 export default function MeetupDetail() {
@@ -70,6 +75,22 @@ export default function MeetupDetail() {
     });
   }
 
+  async function shareMeetup(): Promise<void> {
+    const url = window.location.href;
+    const shareData = { title: meetup?.title ?? 'FlightMeet', text: 'Schau dir dieses Flugtreffen an:', url };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast('Link wurde in die Zwischenablage kopiert.', 'success');
+      }
+    } catch {
+      /* Nutzer hat den Teilen-Dialog abgebrochen – bewusst ignoriert. */
+    }
+  }
+
   if (meetupQuery.isError) {
     return (
       <p className="message error">
@@ -91,20 +112,48 @@ export default function MeetupDetail() {
       <article className="detail">
         <div className="card-header">
           <h1>{meetup.title}</h1>
-          <span className={`badge ${meetup.status === 'voll' ? 'full' : ''}`}>
-            {meetup.status}
-          </span>
+          <div className="detail-header-actions">
+            <FavoriteButton meetupId={meetup.id} withText />
+            <span className={`badge ${meetup.status === 'voll' ? 'full' : ''}`}>
+              {meetup.status}
+            </span>
+          </div>
         </div>
 
         <p className="detail-lead">{meetup.description}</p>
 
+        {meetup.tags && meetup.tags.length > 0 && (
+          <ul className="tag-list">
+            {meetup.tags.map((tag) => (
+              <li key={tag} className="tag-chip">{tag}</li>
+            ))}
+          </ul>
+        )}
+
         <dl className="facts detail-facts">
           <div><dt>Flugspot</dt><dd>{meetup.spot}</dd></div>
           <div><dt>Region</dt><dd>{meetup.region}</dd></div>
-          <div><dt>Datum und Uhrzeit</dt><dd>{meetup.date} um {meetup.time}</dd></div>
+          <div><dt>Datum und Uhrzeit</dt><dd>{formatDateTime(meetup.date, meetup.time, meetup.end_time)}</dd></div>
           <div><dt>Erfahrungslevel</dt><dd>{meetup.experience_level}</dd></div>
+          {meetup.takeoff_direction && (
+            <div><dt>Startrichtung</dt><dd>{meetup.takeoff_direction}</dd></div>
+          )}
           <div><dt>Freie Plätze</dt><dd>{meetup.free_places}</dd></div>
         </dl>
+
+        {typeof meetup.latitude === 'number' && typeof meetup.longitude === 'number' && (
+          <>
+            <h2>Standort</h2>
+            <MeetupMap meetups={[meetup]} height={300} withLinks={false} />
+          </>
+        )}
+
+        <WeatherPanel
+          latitude={meetup.latitude}
+          longitude={meetup.longitude}
+          date={meetup.date}
+          time={meetup.time}
+        />
 
         <h2>Teilnehmerliste</h2>
         {meetup.participants.length > 0 ? (
@@ -132,6 +181,8 @@ export default function MeetupDetail() {
         </div>
 
         <div className="actions">
+          <button type="button" className="secondary-button" onClick={() => void shareMeetup()}>Teilen</button>
+          <button type="button" className="secondary-button" onClick={() => downloadMeetupIcs(meetup)}>Zum Kalender</button>
           {canManage && (
             <>
               <Link className="button secondary" to={`/flugtreffen/${meetup.id}/bearbeiten`}>Bearbeiten</Link>
